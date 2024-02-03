@@ -77,7 +77,7 @@ impl TryFrom<u8> for GroupOneInstruction {
 
     fn try_from(value: u8) -> Result<GroupOneInstruction, Self::Error> {
         let instruction_bits = (0b11100000 & value) >> 5;
-        let mode_bits = (0b00011100 & value) >> 3;
+        let mode_bits = (0b00011100 & value) >> 2;
 
         let mode = match mode_bits {
             0b000 => GroupOneMode::IndirectZeroPageX,
@@ -111,7 +111,7 @@ impl TryFrom<u8> for GroupTwoInstruction {
 
     fn try_from(value: u8) -> Result<GroupTwoInstruction, Self::Error> {
         let instruction_bits = (0b11100000 & value) >> 5;
-        let mode_bits = (0b00011100 & value) >> 3;
+        let mode_bits = (0b00011100 & value) >> 2;
 
         let mode = match mode_bits {
             0b000 => GroupTwoMode::Immediate,
@@ -142,7 +142,7 @@ impl TryFrom<u8> for GroupThreeInstruction {
 
     fn try_from(value: u8) -> Result<GroupThreeInstruction, Self::Error> {
         let instruction_bits = (0b11100000 & value) >> 5;
-        let mode_bits = (0b00011100 & value) >> 3;
+        let mode_bits = (0b00011100 & value) >> 2;
 
         let mode = match mode_bits {
             0b000 => GroupThreeMode::Immediate,
@@ -185,19 +185,23 @@ impl TryFrom<u8> for Instruction {
 
 
 
+// 0xA5 = 10100101 ( 165 )
+// aaabbbcc. The aaa and cc bits determine the opcode, and the bbb bits determine the addressing mode. 
+// bbb = 001
+// cc = 01
+// aaa = 101
+
+// bbb	addressing mode
+// 000	(zero page,X)
+// 001	zero page
+// 010	#immediate
+// 011	absolute
+// 100	(zero page),Y
+// 101	zero page,X
+// 110	absolute,Y
+// 111	absolute,X
 
 
-
-// enum GroupOneAddressingMode {
-// (zero page,X) = 0b000,
-// zero page = 0b001,
-// #immediate = 0b010,
-// absolute = 0b011,
-// (zero page),Y = 0b100,
-// zero page,X = 0b101,
-// absolute,Y = 0b110,
-// absolute,X = 0b111,
-// }
 
 
 fn main() {

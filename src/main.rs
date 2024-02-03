@@ -28,6 +28,22 @@ enum GroupOneInstruction {
     SBC(GroupOneMode),	
 }
 
+impl GroupOneInstruction {
+    fn move_parser(&self) -> usize {
+        match *self {
+            GroupOneInstruction::ORA(_) => 1,
+            GroupOneInstruction::AND(_) => 1,
+            GroupOneInstruction::EOR(_) => 1,
+            GroupOneInstruction::ADC(_) => 1,
+            GroupOneInstruction::STA(_) => 1,
+            GroupOneInstruction::LDA(_) => 1,
+            GroupOneInstruction::CMP(_) => 1,
+            GroupOneInstruction::SBC(_) => 1,
+        }
+    }
+
+}
+
 #[derive(Debug)]
 enum GroupTwoMode {
     Immediate,         // 0b000; #immediate

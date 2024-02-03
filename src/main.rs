@@ -31,6 +31,25 @@ enum GroupOneInstruction {
     SBC = 0b111,	
 }
 
+impl TryFrom<u8> for GroupOneInstruction {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<GroupOneInstruction, Self::Error> {
+        match value {
+            0b000 => Ok(GroupOneInstruction::ORA),
+            0b001 => Ok(GroupOneInstruction::AND),
+            0b010 => Ok(GroupOneInstruction::EOR),
+            0b011 => Ok(GroupOneInstruction::ADC),
+            0b100 => Ok(GroupOneInstruction::STA),
+            0b101 => Ok(GroupOneInstruction::LDA),
+            0b110 => Ok(GroupOneInstruction::CMP),
+            0b111 => Ok(GroupOneInstruction::SBC),
+            _ => Err(()),
+        }
+    }
+}
+
+
 // enum GroupOneAddressingMode {
 // (zero page,X) = 0b000,
 // zero page = 0b001,
@@ -55,8 +74,24 @@ fn main() {
     while program_counter < instructions.len() {
         let pprogram_counter_value = instructions.get(program_counter).unwrap();
         let group = InstructionGroup::try_from(pprogram_counter_value & 0b11);
+        
         match group {
-            Ok(InstructionGroup::GroupOne) => println!("Instruction group one"),
+            Ok(InstructionGroup::GroupOne) => {
+                println!("Instruction Group is One");
+                let instruction = GroupOneInstruction::try_from((0b11100000 & pprogram_counter_value) >> 5);
+                match instruction {
+                    
+                    Ok(GroupOneInstruction::ORA) => println!("Instruction is ORA"),
+                    Ok(GroupOneInstruction::AND) => println!("Instruction is AND"),
+                    Ok(GroupOneInstruction::EOR) => println!("Instruction is EOR"),
+                    Ok(GroupOneInstruction::ADC) => println!("Instruction is ADC"),
+                    Ok(GroupOneInstruction::STA) => println!("Instruction is STA"),
+                    Ok(GroupOneInstruction::LDA) => println!("Instruction is LDA"),
+                    Ok(GroupOneInstruction::CMP) => println!("Instruction is CMP"),
+                    Ok(GroupOneInstruction::SBC) => println!("Instruction is SBC"),
+                    _ => println!("Unknown instruction")
+                }
+            },
             Ok(InstructionGroup::GroupTwo) => println!("Instruction group two"),
             Ok(InstructionGroup::GroupThree) => println!("Instruction group three"),
             Ok(InstructionGroup::GroupFour) => println!("Instruction group four"),

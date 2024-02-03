@@ -19,7 +19,10 @@ impl TryFrom<u8> for InstructionGroup {
     }
 }
 
+// enum Instruction {
+//     GroupOne(GroupOneInstruction)
 
+// }
 enum GroupOneInstruction {
     ORA = 0b000,	
     AND = 0b001,	
@@ -72,15 +75,19 @@ fn main() {
     let instructions: [u8; 6] = [0xA5, 0x60, 0x65, 0x61, 0x85, 0x62];
     let mut program_counter = 0;
     while program_counter < instructions.len() {
-        let pprogram_counter_value = instructions.get(program_counter).unwrap();
-        let group = InstructionGroup::try_from(pprogram_counter_value & 0b11);
+        let program_counter_value = instructions.get(program_counter).unwrap();
+        // Extract bit values early
+        let group_bits = program_counter_value & 0b11;
+        let instruction_bits = (0b11100000 & program_counter_value) >> 5;
+        let mode_bits = (0b00011000 & program_counter_value) >> 3;
+
         
+        let group = InstructionGroup::try_from(group_bits);
         match group {
             Ok(InstructionGroup::GroupOne) => {
                 println!("Instruction Group is One");
-                let instruction = GroupOneInstruction::try_from((0b11100000 & pprogram_counter_value) >> 5);
+                let instruction = GroupOneInstruction::try_from(instruction_bits);
                 match instruction {
-                    
                     Ok(GroupOneInstruction::ORA) => println!("Instruction is ORA"),
                     Ok(GroupOneInstruction::AND) => println!("Instruction is AND"),
                     Ok(GroupOneInstruction::EOR) => println!("Instruction is EOR"),
@@ -97,7 +104,7 @@ fn main() {
             Ok(InstructionGroup::GroupFour) => println!("Instruction group four"),
             _ => println!("Unknown instruction group"),
         }
-        println!("{:?}", pprogram_counter_value);
+        println!("{:?}", program_counter_value);
         program_counter += 1;
     }
 

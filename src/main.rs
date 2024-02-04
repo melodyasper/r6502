@@ -218,59 +218,46 @@ impl State {
 
 impl Instruction {
     fn execute<'a>(&self, state: &mut State) -> Result<(), ()>{
-        match *self {
+        let (instruction, argument) = match *self {
             Instruction::GroupOne(GroupOneMode::DirectZeroPage(ref instruction)) => {
                 // When instruction LDA is executed by the microprocessor, data is transferred from memory to the accumulator and stored in the accumulator.
-                let value = match state.consume_byte() {
+                match state.consume_byte() {
                     Some(byte) => match state.fetch_memory(byte.into()) {
-                        Ok(value) => value,
+                        Ok(argument) => (instruction, argument),
                         _ => return Err(())
                     }
                     _ => return Err(())
-                };
-                match instruction {
-                    GroupOneInstruction::LDA => {
-                        state.register_a = value;
-                    }
-                    _ => {
-                        println!("Instruction {:?} implemented yet", instruction);
-                    }
                 }
-                
-                Ok(())
-
             },
             Instruction::GroupOne(GroupOneMode::DirectAbsolute(ref instruction)) => {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
-
-                let value = match (state.consume_byte(), state.consume_byte()) {
+                 match (state.consume_byte(), state.consume_byte()) {
                     (Some(low_byte), Some(high_byte)) => {
                         let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                         match state.fetch_memory(address.into()) {
-                            Ok(result) => result,
+                            Ok(argument) => (instruction, argument),
                             _ => return Err(())
                         }
                     },
                     _ => return Err(())
-                };
-
-
-                match instruction {
-                    GroupOneInstruction::LDA => {
-                        state.register_a = value;
-                    }
-                    _ => {
-                        println!("Instruction {:?} implemented yet", instruction);
-                    }
                 }
-
-                Ok(())
-            }
+            },
             _ => {
                 println!("Unimplemented.");
-                Ok(())
+                return Ok(())
+            }
+        };
+        
+        match instruction {
+            GroupOneInstruction::LDA => {
+                state.register_a = argument;
+            }
+            _ => {
+                println!("Instruction {:?} implemented yet", instruction);
             }
         }
+
+        Ok(())
     }
 }
 

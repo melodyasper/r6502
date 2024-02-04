@@ -385,9 +385,7 @@ impl Instruction {
                     SingleByteInstruction::SEI => {
                         state.status_flags.set_interrupt_disable_flag(true);
                     },
-                    _ => {
-                        println!("This single byte instruction isn't implemented");
-                    }
+                    _ => return Err(())
                 }
             },
             _ => return Err(())
@@ -460,8 +458,16 @@ fn main() {
     while state.running {
         match state.get_next_instruction() {
             Some(instruction) => {
-                println!("Found instruction {:?}", instruction);
-                instruction.execute(&mut state);
+                println!("Identified instruction: {:?}", instruction);
+                match instruction.execute(&mut state) {
+                    Ok(_) => {
+                        println!("Executed instruction {:?}", instruction);
+                    }
+                    _ => {
+                        println!("Failed to execute instruction {:?}", instruction);
+                    }
+                }
+                
             }
             None => {
                 println!("Unknown instruction");

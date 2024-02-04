@@ -1,5 +1,3 @@
-use std::{error, fmt::Error};
-
 #[derive(Debug)]
 enum Instruction {
     GroupOne(GroupOneInstruction),
@@ -201,6 +199,7 @@ impl State {
         }
     }
     fn fetch_memory(&mut self, address: usize) -> Result<u8, ()> {
+        println!("Read from memory @ {}", address);
         let length = self.memory.len();
         if length < address {
             // TODO: Remove this hack.
@@ -220,7 +219,7 @@ impl Instruction {
                 // When instruction LDA is executed by the microprocessor, data is transferred from memory to the accumulator and stored in the accumulator.
                 match state.consume_byte() {
                     Some(byte) => {
-                        println!("Read in {}", byte);
+                        
                         match state.fetch_memory(byte.into()) {
                             Ok(result) => {
                                 state.register_a = result;
@@ -232,6 +231,23 @@ impl Instruction {
                     None => Err(())
                 }
             },
+            Instruction::GroupOne(GroupOneInstruction::LDA(GroupOneMode::DirectAbsolute)) => {
+                // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
+
+                match (state.consume_byte(), state.consume_byte()) {
+                    (Some(low_byte), Some(high_byte)) => {
+                        let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                        match state.fetch_memory(address.into()) {
+                            Ok(result) => {
+                                state.register_a = result;
+                                Ok(())
+                            }
+                            Err(_) => Err(())
+                        }
+                    },
+                    _ => Err(())
+                }
+            }
             _ => {
                 println!("Unimplemented.");
                 Ok(())

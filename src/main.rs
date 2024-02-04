@@ -3,6 +3,7 @@ enum Instruction {
     GroupOne(GroupOneMode),
     GroupTwo(GroupTwoMode),
     GroupThree(GroupThreeMode),
+    GroupSingleByte(SingleByteInstruction),
 }
 
 #[derive(Debug)]
@@ -59,6 +60,63 @@ enum GroupThreeMode {
     DirectAbsoluteX(GroupThreeInstruction), // 0b111; absolute,X
 }
 
+#[repr(u8)]
+#[derive(Debug)]
+enum SingleByteInstruction {
+    PHP = 0x08,
+    PLP = 0x28,
+    PHA = 0x48,
+    PLA = 0x68,
+    DEY = 0x88,
+    TAY = 0xA8,
+    INY = 0xC8,
+    INX = 0xE8,
+    CLC = 0x18,
+    SEC = 0x38,
+    CLI = 0x58,
+    SEI = 0x78,
+    TYA = 0x98,
+    CLV = 0xB8,
+    CLD = 0xD8,
+    SED = 0xF8,
+    TXA = 0x8A,
+    TXS = 0x9A,
+    TAX = 0xAA,
+    TSX = 0xBA,
+    DEX = 0xCA,
+    NOP = 0xEA,
+}
+
+impl TryFrom<u8> for SingleByteInstruction {
+    type Error = ();
+    fn try_from(value: u8) -> Result<SingleByteInstruction, Self::Error> {
+        match value {
+            0x08 => Ok(SingleByteInstruction::PHP),
+            0x28 => Ok(SingleByteInstruction::PLP),
+            0x48 => Ok(SingleByteInstruction::PHA),
+            0x68 => Ok(SingleByteInstruction::PLA),
+            0x88 => Ok(SingleByteInstruction::DEY),
+            0xA8 => Ok(SingleByteInstruction::TAY),
+            0xC8 => Ok(SingleByteInstruction::INY),
+            0xE8 => Ok(SingleByteInstruction::INX),
+            0x18 => Ok(SingleByteInstruction::CLC),
+            0x38 => Ok(SingleByteInstruction::SEC),
+            0x58 => Ok(SingleByteInstruction::CLI),
+            0x78 => Ok(SingleByteInstruction::SEI),
+            0x98 => Ok(SingleByteInstruction::TYA),
+            0xB8 => Ok(SingleByteInstruction::CLV),
+            0xD8 => Ok(SingleByteInstruction::CLD),
+            0xF8 => Ok(SingleByteInstruction::SED),
+            0x8A => Ok(SingleByteInstruction::TXA),
+            0x9A => Ok(SingleByteInstruction::TXS),
+            0xAA => Ok(SingleByteInstruction::TAX),
+            0xBA => Ok(SingleByteInstruction::TSX),
+            0xCA => Ok(SingleByteInstruction::DEX),
+            0xEA => Ok(SingleByteInstruction::NOP),
+            _ => Err(())
+        }
+    }
+}
 #[derive(Debug)]
 enum GroupThreeInstruction {
     BIT,         // 001
@@ -325,6 +383,12 @@ impl TryFrom<u8> for Instruction {
     type Error = ();
 
     fn try_from(value: u8) -> Result<Instruction, Self::Error> {
+        // This needs a carve out as a special exception
+        match SingleByteInstruction::try_from(value) {
+            Ok(instruction) => return Ok(Instruction::GroupSingleByte(instruction)),
+            Err(_) => ()
+        };
+
         let group_bits = value & 0b11;
         match group_bits {
             0b01 => Ok(Instruction::GroupOne(GroupOneMode::try_from(value)?)),
@@ -363,7 +427,8 @@ fn main() {
     let mut state = State {
         running: true,
         program_counter: 0,
-        memory: vec![0xA5, 0x60, 0x65, 0x61, 0x85, 0x62],
+        // memory: vec![0xA5, 0x60, 0x65, 0x61, 0x85, 0x62],
+        memory: vec![0xA8],
         register_a: 0,
         register_x: 0,
         register_y: 0,
@@ -381,7 +446,7 @@ fn main() {
                 instruction.execute(&mut state);
             }
             None => {
-                println!("Program finished");
+                println!("Unknown instruction");
             }
         }
     }

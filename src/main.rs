@@ -183,17 +183,22 @@ impl TryFrom<u8> for GroupThreeInstruction {
     }
 }
 
+#[derive(Debug)]
 struct State {
     running: bool,
     program_counter: usize,
     memory: Vec<u8>,
+    register_a: u8,
+    register_x: u8,
+    register_y: u8,
+    register_s: u8,
+    register_p: u8,
+    register_status: u8,    
 }
 impl State {
     fn get_next_instruction(&mut self) -> Option<Instruction> {
-        let program_counter = self.program_counter;
-        self.program_counter += 1;
-        match self.memory.get(program_counter) {
-            Some(value) => match Instruction::try_from(*value) {
+        match self.consume_byte() {
+            Some(value) => match Instruction::try_from(value) {
                 Ok(next_instruction) => Some(next_instruction),
                 Err(_) => None
             },
@@ -203,11 +208,53 @@ impl State {
             }
         }
     }
+    fn consume_byte(&mut self) -> Option<u8> {
+        let program_counter = self.program_counter;
+        self.program_counter += 1;
+        // TODO: Can't use `fetch_memory` here until we fix our little hack in it.
+        // Otherwise program space will grow indefinitely.
+        match self.memory.get(program_counter) {
+            Some(value) => Some(*value),
+            None => None
+        }
+    }
+    fn fetch_memory(&mut self, address: usize) -> Result<u8, ()> {
+        let length = self.memory.len();
+        if length < address {
+            // TODO: Remove this hack.
+            self.memory.resize(length, 0);
+        }
+        match self.memory.get(address) {
+            Some(value) => Ok(*value),
+            None => Err(())
+        }
+    }
 }
 
 impl Instruction {
-    fn execute<'a>(&self, state: State) -> State {
-        return state;
+    fn execute<'a>(&self, state: &mut State) -> Result<(), ()>{
+        match *self {
+            Instruction::GroupOne(GroupOneInstruction::LDA(GroupOneMode::DirectZeroPage)) => {
+                // When instruction LDA is executed by the microprocessor, data is transferred from memory to the accumulator and stored in the accumulator.
+                match state.consume_byte() {
+                    Some(byte) => {
+                        println!("Read in {}", byte);
+                        match state.fetch_memory(byte.into()) {
+                            Ok(result) => {
+                                state.register_a = result;
+                                Ok(())
+                            }
+                            Err(_) => Err(())
+                        }
+                    },
+                    None => Err(())
+                }
+            },
+            _ => {
+                println!("Unimplemented.");
+                Ok(())
+            }
+        }
     }
 }
 
@@ -250,23 +297,30 @@ fn main() {
     // STA   $62
 
     // https://llx.com/Neil/a2/opcodes.html
-    let mut program_counter = 0;
     let mut state = State {
         running: true,
         program_counter: 0,
         memory: vec![0xA5, 0x60, 0x65, 0x61, 0x85, 0x62],
+        register_a: 0,
+        register_x: 0,
+        register_y: 0,
+        register_s: 0,
+        register_p: 0,
+        register_status: 0,
+        
     };
+    
+    state.memory.resize(256, 0xAA);
     while state.running {
         match state.get_next_instruction() {
             Some(instruction) => {
                 println!("Found instruction {:?}", instruction);
-                state = instruction.execute(state);
+                instruction.execute(&mut state);
             }
             None => {
                 println!("Program finished");
             }
         }
     }
-
-    println!("Hello, world!");
+    println!("{:?}", state)
 }

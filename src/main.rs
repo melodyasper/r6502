@@ -168,6 +168,45 @@ impl TryFrom<u8> for GroupThreeMode {
 }
 
 #[derive(Debug)]
+struct StatusFlags {
+    value: u8,
+}
+macro_rules! create_status_flag {
+    ($name:ident, $value:expr) => {
+        ::paste::paste! {
+            fn [< $name _flag >] (&self) -> bool {
+                (self.value & $value) != 0
+            }
+            fn [<set_ $name _flag >](&mut self, set: bool) {
+                if set {
+                    self.value |= $value;
+                } else {
+                    self.value &= !$value;
+                }
+            }
+        }
+    }
+}
+
+impl StatusFlags {
+    fn new(value: u8) -> Self {
+        StatusFlags { value }
+    }
+
+    create_status_flag!(negative, 7);
+    create_status_flag!(overflow, 6);
+    create_status_flag!(expansion, 5);
+    create_status_flag!(break_command, 4);
+    create_status_flag!(decimal, 3);
+    create_status_flag!(interrupt_disable, 2);
+    create_status_flag!(zero, 1);
+    create_status_flag!(carry, 0);
+
+    // You can add more getters and setters for other bits following the pattern above.
+}
+
+
+#[derive(Debug)]
 struct State {
     running: bool,
     program_counter: usize,
@@ -177,7 +216,7 @@ struct State {
     register_y: u8,
     register_s: u8,
     register_p: u8,
-    register_status: u8,    
+    status_flags: StatusFlags,    
 }
 impl State {
     fn get_next_instruction(&mut self) -> Option<Instruction> {
@@ -252,6 +291,14 @@ impl Instruction {
             GroupOneInstruction::LDA => {
                 state.register_a = argument;
             }
+            GroupOneInstruction::ADC => {
+                let (result, set_overflow_flag) = state.register_a.overflowing_add(argument);
+                state.register_a = result;
+                if set_overflow_flag {
+                    // set_overflow_flag logic here
+                }
+
+            }
             _ => {
                 println!("Instruction {:?} implemented yet", instruction);
             }
@@ -309,11 +356,11 @@ fn main() {
         register_y: 0,
         register_s: 0,
         register_p: 0,
-        register_status: 0,
+        status_flags: StatusFlags::new(0),
         
     };
     
-    state.memory.resize(256, 0xAA);
+    // state.memory.resize(256, 0xAA);
     while state.running {
         match state.get_next_instruction() {
             Some(instruction) => {
@@ -325,5 +372,5 @@ fn main() {
             }
         }
     }
-    println!("{:?}", state)
+    // println!("{:?}", state)
 }

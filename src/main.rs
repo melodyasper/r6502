@@ -1,24 +1,10 @@
 #[derive(Debug)]
 enum Instruction {
-    GroupOne(GroupOneMode),
-    GroupTwo(GroupTwoMode),
-    GroupThree(GroupThreeMode),
+    GroupMultipleByte(MultipleByteInstruction, AddressingMode),
     GroupSingleByte(SingleByteInstruction),
 }
-
 #[derive(Debug)]
-enum GroupOneMode {
-    IndirectZeroPageX(GroupOneInstruction), // 0b000; (zero page,X)
-    DirectZeroPage(GroupOneInstruction),    // 0b001; zero page
-    Immediate(GroupOneInstruction),         // 0b010; #immediate
-    DirectAbsolute(GroupOneInstruction),    // 0b011; absolute
-    IndirectZeroPageY(GroupOneInstruction), // 0b100; (zero page),Y
-    DirectZeroPageX(GroupOneInstruction),   // 0b101; zero page,X
-    DirectAbsoluteY(GroupOneInstruction),   // 0b110; absolute,Y
-    DirectAbsoluteX(GroupOneInstruction),   // 0b111; absolute,X
-}
-#[derive(Debug)]
-enum GroupOneInstruction {
+enum MultipleByteInstruction {
     ORA,
     AND,
     EOR,
@@ -27,20 +13,6 @@ enum GroupOneInstruction {
     LDA,
     CMP,
     SBC,
-}
-
-#[derive(Debug)]
-enum GroupTwoMode {
-    Immediate(GroupTwoInstruction),       // 0b000; #immediate
-    DirectZeroPage(GroupTwoInstruction),  // 0b001; zero page
-    Accumulator(GroupTwoInstruction),     // 0b010; accumulator
-    DirectAbsolute(GroupTwoInstruction),  // 0b011; absolute
-    DirectZeroPageX(GroupTwoInstruction), // 0b101; zero page,X
-    DirectAbsoluteX(GroupTwoInstruction), // 0b111; absolute,X
-}
-
-#[derive(Debug)]
-enum GroupTwoInstruction {
     ASL,
     ROL,
     LSR,
@@ -49,16 +21,151 @@ enum GroupTwoInstruction {
     LDX,
     DEC,
     INC,
+    BIT,         // 001
+    JMP,         // 010
+    JMPAbsolute, // 011
+    STY,         // 100
+    LDY,         // 101
+    CPY,         // 110
+    CPX,         // 111
 }
 
-#[derive(Debug)]
-enum GroupThreeMode {
-    Immediate(GroupThreeInstruction),       // 0b000; #immediate
-    DirectZeroPage(GroupThreeInstruction),  // 0b001; zero page
-    DirectAbsolute(GroupThreeInstruction),  // 0b011; absolute
-    DirectZeroPageX(GroupThreeInstruction), // 0b101; zero page,X
-    DirectAbsoluteX(GroupThreeInstruction), // 0b111; absolute,X
+impl TryFrom<u8> for Instruction {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Instruction, Self::Error> {
+        let group_bits = value & 0b11;
+        let instruction_bits = (0b11100000 & value) >> 5;
+        let mode_bits = (0b00011100 & value) >> 2;
+
+        // Single byte carveout as an exception
+        match value {
+            0x08 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PHP)),
+            0x28 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PLP)),
+            0x48 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PHA)),
+            0x68 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PLA)),
+            0x88 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::DEY)),
+            0xA8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TAY)),
+            0xC8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::INY)),
+            0xE8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::INX)),
+            0x18 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::CLC)),
+            0x38 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::SEC)),
+            0x58 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::CLI)),
+            0x78 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::SEI)),
+            0x98 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TYA)),
+            0xB8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::CLV)),
+            0xD8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::CLD)),
+            0xF8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::SED)),
+            0x8A => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TXA)),
+            0x9A => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TXS)),
+            0xAA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TAX)),
+            0xBA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TSX)),
+            0xCA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::DEX)),
+            0xEA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::NOP)),
+            _ => (),
+        };
+
+
+        match group_bits {
+            0b01 => {
+                let instruction = match instruction_bits {
+                    0b000 => MultipleByteInstruction::ORA,
+                    0b001 => MultipleByteInstruction::AND,
+                    0b010 => MultipleByteInstruction::EOR,
+                    0b011 => MultipleByteInstruction::ADC,
+                    0b100 => MultipleByteInstruction::STA,
+                    0b101 => MultipleByteInstruction::LDA,
+                    0b110 => MultipleByteInstruction::CMP,
+                    0b111 => MultipleByteInstruction::SBC,
+                    _ => return Err(()),
+                };
+
+                let mode = match mode_bits {
+                    0b000 => AddressingMode::IndirectZeroPageX,
+                    0b001 => AddressingMode::DirectZeroPage,
+                    0b010 => AddressingMode::Immediate,
+                    0b011 => AddressingMode::DirectAbsolute,
+                    0b100 => AddressingMode::IndirectZeroPageY,
+                    0b101 => AddressingMode::DirectZeroPageX,
+                    0b110 => AddressingMode::DirectAbsoluteY,
+                    0b111 => AddressingMode::DirectAbsoluteX,
+                    _ => return Err(()),
+                };
+
+                Ok(Instruction::GroupMultipleByte(instruction, mode))
+            },
+            0b10 => {
+                let instruction = match instruction_bits {
+                    0b000 => MultipleByteInstruction::ASL,
+                    0b001 => MultipleByteInstruction::ROL,
+                    0b010 => MultipleByteInstruction::LSR,
+                    0b011 => MultipleByteInstruction::ROR,
+                    0b100 => MultipleByteInstruction::STX,
+                    0b101 => MultipleByteInstruction::LDX,
+                    0b110 => MultipleByteInstruction::DEC,
+                    0b111 => MultipleByteInstruction::INC,
+                    _ => return Err(()),
+                };
+        
+                let mode = match mode_bits {
+                    0b000 => AddressingMode::Immediate,
+                    0b001 => AddressingMode::DirectZeroPage,
+                    0b010 => AddressingMode::Accumulator,
+                    0b011 => AddressingMode::DirectAbsolute,
+                    0b101 => AddressingMode::DirectZeroPageX,
+                    0b111 => AddressingMode::DirectAbsoluteX,
+                    _ => return Err(()),
+                };
+
+                Ok(Instruction::GroupMultipleByte(instruction, mode))
+            },
+            0b00 => {
+                let instruction = match instruction_bits {
+                    0b001 => MultipleByteInstruction::BIT,
+                    0b010 => MultipleByteInstruction::JMP,
+                    0b011 => MultipleByteInstruction::JMPAbsolute,
+                    0b100 => MultipleByteInstruction::STY,
+                    0b101 => MultipleByteInstruction::LDY,
+                    0b110 => MultipleByteInstruction::CPY,
+                    0b111 => MultipleByteInstruction::CPX,
+                    _ => return Err(()),
+                };
+        
+                let mode = match mode_bits {
+                    0b000 => AddressingMode::Immediate,
+                    0b001 => AddressingMode::DirectZeroPage,
+                    0b011 => AddressingMode::DirectAbsolute,
+                    0b101 => AddressingMode::DirectZeroPageX,
+                    0b111 => AddressingMode::DirectAbsoluteX,
+                    _ => return Err(()),
+                };
+
+                Ok(Instruction::GroupMultipleByte(instruction, mode))
+            }
+            _ => Err(()),
+        }
+
+        
+    }
 }
+
+
+#[derive(Debug)]
+enum AddressingMode {
+    IndirectZeroPageX,
+    DirectZeroPage,
+    Immediate,
+    DirectAbsolute,
+    IndirectZeroPageY,
+    DirectZeroPageX,
+    DirectAbsoluteY,
+    DirectAbsoluteX,
+    Accumulator
+}
+
+
+
+
+
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -86,145 +193,6 @@ enum SingleByteInstruction {
     DEX = 0xCA,
     NOP = 0xEA,
 }
-
-impl TryFrom<u8> for SingleByteInstruction {
-    type Error = ();
-    fn try_from(value: u8) -> Result<SingleByteInstruction, Self::Error> {
-        match value {
-            0x08 => Ok(SingleByteInstruction::PHP),
-            0x28 => Ok(SingleByteInstruction::PLP),
-            0x48 => Ok(SingleByteInstruction::PHA),
-            0x68 => Ok(SingleByteInstruction::PLA),
-            0x88 => Ok(SingleByteInstruction::DEY),
-            0xA8 => Ok(SingleByteInstruction::TAY),
-            0xC8 => Ok(SingleByteInstruction::INY),
-            0xE8 => Ok(SingleByteInstruction::INX),
-            0x18 => Ok(SingleByteInstruction::CLC),
-            0x38 => Ok(SingleByteInstruction::SEC),
-            0x58 => Ok(SingleByteInstruction::CLI),
-            0x78 => Ok(SingleByteInstruction::SEI),
-            0x98 => Ok(SingleByteInstruction::TYA),
-            0xB8 => Ok(SingleByteInstruction::CLV),
-            0xD8 => Ok(SingleByteInstruction::CLD),
-            0xF8 => Ok(SingleByteInstruction::SED),
-            0x8A => Ok(SingleByteInstruction::TXA),
-            0x9A => Ok(SingleByteInstruction::TXS),
-            0xAA => Ok(SingleByteInstruction::TAX),
-            0xBA => Ok(SingleByteInstruction::TSX),
-            0xCA => Ok(SingleByteInstruction::DEX),
-            0xEA => Ok(SingleByteInstruction::NOP),
-            _ => Err(())
-        }
-    }
-}
-#[derive(Debug)]
-enum GroupThreeInstruction {
-    BIT,         // 001
-    JMP,         // 010
-    JMPAbsolute, // 011
-    STY,         // 100
-    LDY,         // 101
-    CPY,         // 110
-    CPX,         // 111
-}
-
-impl TryFrom<u8> for GroupOneMode {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<GroupOneMode, Self::Error> {
-        let instruction_bits = (0b11100000 & value) >> 5;
-        let mode_bits = (0b00011100 & value) >> 2;
-
-        let instruction = match instruction_bits {
-            0b000 => GroupOneInstruction::ORA,
-            0b001 => GroupOneInstruction::AND,
-            0b010 => GroupOneInstruction::EOR,
-            0b011 => GroupOneInstruction::ADC,
-            0b100 => GroupOneInstruction::STA,
-            0b101 => GroupOneInstruction::LDA,
-            0b110 => GroupOneInstruction::CMP,
-            0b111 => GroupOneInstruction::SBC,
-            _ => return Err(()),
-        };
-
-         match mode_bits {
-            0b000 => Ok(GroupOneMode::IndirectZeroPageX(instruction)),
-            0b001 => Ok(GroupOneMode::DirectZeroPage(instruction)),
-            0b010 => Ok(GroupOneMode::Immediate(instruction)),
-            0b011 => Ok(GroupOneMode::DirectAbsolute(instruction)),
-            0b100 => Ok(GroupOneMode::IndirectZeroPageY(instruction)),
-            0b101 => Ok(GroupOneMode::DirectZeroPageX(instruction)),
-            0b110 => Ok(GroupOneMode::DirectAbsoluteY(instruction)),
-            0b111 => Ok(GroupOneMode::DirectAbsoluteX(instruction)),
-            _ => return Err(()),
-        }
-
-    }
-}
-
-impl TryFrom<u8> for GroupTwoMode {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<GroupTwoMode, Self::Error> {
-        let instruction_bits = (0b11100000 & value) >> 5;
-        let mode_bits = (0b00011100 & value) >> 2;
-        let instruction = match instruction_bits {
-            0b000 => GroupTwoInstruction::ASL,
-            0b001 => GroupTwoInstruction::ROL,
-            0b010 => GroupTwoInstruction::LSR,
-            0b011 => GroupTwoInstruction::ROR,
-            0b100 => GroupTwoInstruction::STX,
-            0b101 => GroupTwoInstruction::LDX,
-            0b110 => GroupTwoInstruction::DEC,
-            0b111 => GroupTwoInstruction::INC,
-            _ => return Err(()),
-        };
-
-        match mode_bits {
-            0b000 => Ok(GroupTwoMode::Immediate(instruction)),
-            0b001 => Ok(GroupTwoMode::DirectZeroPage(instruction)),
-            0b010 => Ok(GroupTwoMode::Accumulator(instruction)),
-            0b011 => Ok(GroupTwoMode::DirectAbsolute(instruction)),
-            0b101 => Ok(GroupTwoMode::DirectZeroPageX(instruction)),
-            0b111 => Ok(GroupTwoMode::DirectAbsoluteX(instruction)),
-            _ => Err(()),
-        }
-
-        
-    }
-}
-
-impl TryFrom<u8> for GroupThreeMode {
-    type Error = ();
-
-    fn try_from(value: u8) -> Result<GroupThreeMode, Self::Error> {
-        let instruction_bits = (0b11100000 & value) >> 5;
-        let mode_bits = (0b00011100 & value) >> 2;
-
-        let instruction = match instruction_bits {
-            0b001 => GroupThreeInstruction::BIT,
-            0b010 => GroupThreeInstruction::JMP,
-            0b011 => GroupThreeInstruction::JMPAbsolute,
-            0b100 => GroupThreeInstruction::STY,
-            0b101 => GroupThreeInstruction::LDY,
-            0b110 => GroupThreeInstruction::CPY,
-            0b111 => GroupThreeInstruction::CPX,
-            _ => return Err(()),
-        };
-
-        match mode_bits {
-            0b000 => Ok(GroupThreeMode::Immediate(instruction)),
-            0b001 => Ok(GroupThreeMode::DirectZeroPage(instruction)),
-            0b011 => Ok(GroupThreeMode::DirectAbsolute(instruction)),
-            0b101 => Ok(GroupThreeMode::DirectZeroPageX(instruction)),
-            0b111 => Ok(GroupThreeMode::DirectAbsoluteX(instruction)),
-            _ => Err(()),
-        }
-
-    
-    }
-}
-
 #[derive(Debug)]
 struct StatusFlags {
     value: u8,
@@ -243,7 +211,7 @@ macro_rules! create_status_flag {
                 }
             }
         }
-    }
+    };
 }
 
 impl StatusFlags {
@@ -263,7 +231,6 @@ impl StatusFlags {
     // You can add more getters and setters for other bits following the pattern above.
 }
 
-
 #[derive(Debug)]
 struct State {
     running: bool,
@@ -274,14 +241,14 @@ struct State {
     register_y: u8,
     register_s: u8,
     register_p: u8,
-    status_flags: StatusFlags,    
+    status_flags: StatusFlags,
 }
 impl State {
     fn get_next_instruction(&mut self) -> Option<Instruction> {
         match self.consume_byte() {
             Some(value) => match Instruction::try_from(value) {
                 Ok(next_instruction) => Some(next_instruction),
-                Err(_) => None
+                Err(_) => None,
             },
             None => {
                 self.running = false;
@@ -296,7 +263,7 @@ impl State {
         // Otherwise program space will grow indefinitely.
         match self.memory.get(program_counter) {
             Some(value) => Some(*value),
-            None => None
+            None => None,
         }
     }
     fn fetch_memory(&mut self, address: usize) -> Result<u8, ()> {
@@ -308,122 +275,85 @@ impl State {
         }
         match self.memory.get(address) {
             Some(value) => Ok(*value),
-            None => Err(())
+            None => Err(()),
         }
     }
 }
 
 impl Instruction {
-    fn execute<'a>(&self, state: &mut State) -> Result<(), ()>{
-        match *self {
-            Instruction::GroupOne(ref group) => {
-                let (instruction, argument) = match group {
-                    GroupOneMode::IndirectZeroPageX(ref instruction) => return Err(()),
-                    GroupOneMode::DirectZeroPage(ref instruction) => {
-                        // When instruction LDA is executed by the microprocessor, data is transferred from memory to the accumulator and stored in the accumulator.
-                        match state.consume_byte() {
-                            Some(byte) => match state.fetch_memory(byte.into()) {
-                                Ok(argument) => (instruction, argument),
-                                _ => return Err(())
-                            }
-                            _ => return Err(())
-                        }
-                    },
-                    GroupOneMode::Immediate(ref instruction) => {
-                        match state.consume_byte() {
-                            Some(argument) => (instruction, argument),
-                            _ => return Err(())
-                        }
-                    },
-                    GroupOneMode::DirectAbsolute(ref instruction) => {
-                        // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
-                        match (state.consume_byte(), state.consume_byte()) {
-                            (Some(low_byte), Some(high_byte)) => {
-                                let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
-                                match state.fetch_memory(address.into()) {
-                                    Ok(argument) => (instruction, argument),
-                                    _ => return Err(())
-                                }
-                            },
-                            _ => return Err(())
-                        }
-                    },
-                    GroupOneMode::IndirectZeroPageY(ref instruction) => return Err(()),
-                    GroupOneMode::DirectZeroPageX(ref instruction) => return Err(()),
-                    GroupOneMode::DirectAbsoluteY(ref instruction) => return Err(()),
-                    GroupOneMode::DirectAbsoluteX(ref instruction) => return Err(()),
-                };
-
-                // handle outcome
-                match instruction {
-                    GroupOneInstruction::LDA => {
-                        state.register_a = argument;
-                    }
-                    GroupOneInstruction::ADC => {
-                        
-                        
-                        let (argument, overflowing) = match state.status_flags.overflow_flag() {
-                            true => argument.overflowing_add(1),
-                            false => (argument, false)
-                        };
+    fn execute<'a>(&self, state: &mut State) -> Result<(), ()> {
         
-                        
-                        let (argument, overflowing) = match state.register_a.overflowing_add(argument) {
-                            (value, second_overflowing) => {
-                                (value, overflowing || second_overflowing)
-                            }
-                        };
-        
-                        state.register_a = argument;
-                        state.status_flags.set_overflow_flag(overflowing);
-                        state.status_flags.set_zero_flag(argument == 0);
-                        state.status_flags.set_negative_flag((argument & 0b01000000) == 0b01000000);
-        
-                    }
-                    _ => {
-                        println!("Instruction {:?} implemented yet", instruction);
-                    }
-                };
+        let argument = match *self {
+            Instruction::GroupMultipleByte(_, AddressingMode::Immediate) => match state.consume_byte() {
+                Some(argument) => argument,
+                _ => return Err(()),
             },
-            Instruction::GroupSingleByte(ref instruction) => {
-                match instruction {
-                    SingleByteInstruction::SEI => {
-                        state.status_flags.set_interrupt_disable_flag(true);
+            Instruction::GroupMultipleByte(_, AddressingMode::DirectZeroPage) => {
+                match state.consume_byte() {
+                    Some(byte) => match state.fetch_memory(byte.into()) {
+                        Ok(argument) => argument,
+                        _ => return Err(()),
                     },
-                    SingleByteInstruction::CLD => {
-                        state.status_flags.set_decimal_flag(false);
-                    }
-                    _ => return Err(())
+                    _ => return Err(()),
                 }
             },
+            Instruction::GroupMultipleByte(_, AddressingMode::DirectAbsolute) => {
+                // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
+                match (state.consume_byte(), state.consume_byte()) {
+                    (Some(low_byte), Some(high_byte)) => {
+                        let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                        match state.fetch_memory(address.into()) {
+                            Ok(argument) => argument,
+                            _ => return Err(()),
+                        }
+                    }
+                    _ => return Err(()),
+                }
+            },
+            Instruction::GroupSingleByte(_) => 0,
             _ => return Err(())
         };
 
+        match *self {
+            Instruction::GroupSingleByte(ref instruction) => match instruction {
+                SingleByteInstruction::SEI => {
+                    state.status_flags.set_interrupt_disable_flag(true);
+                },
+                SingleByteInstruction::CLD => {
+                    state.status_flags.set_decimal_flag(false);
+                },
+                _ => return Err(()),
+            },
+            Instruction::GroupMultipleByte(MultipleByteInstruction::LDA,_) => {
+                state.register_a = argument;
+            },
+            Instruction::GroupMultipleByte(MultipleByteInstruction::ADC,_) => {
+                let (argument, overflowing) = match state.status_flags.overflow_flag() {
+                    true => argument.overflowing_add(1),
+                    false => (argument, false),
+                };
+
+                let (argument, overflowing) =
+                    match state.register_a.overflowing_add(argument) {
+                        (value, second_overflowing) => {
+                            (value, overflowing || second_overflowing)
+                        }
+                    };
+
+                state.register_a = argument;
+                state.status_flags.set_overflow_flag(overflowing);
+                state.status_flags.set_zero_flag(argument == 0);
+                state
+                    .status_flags
+                    .set_negative_flag((argument & 0b01000000) == 0b01000000);
+            },
+            _ => return Err(()),
+        }
         Ok(())
     }
 }
 
-impl TryFrom<u8> for Instruction {
-    type Error = ();
 
-    fn try_from(value: u8) -> Result<Instruction, Self::Error> {
-        // This needs a carve out as a special exception
-        match SingleByteInstruction::try_from(value) {
-            Ok(instruction) => return Ok(Instruction::GroupSingleByte(instruction)),
-            Err(_) => ()
-        };
-
-        let group_bits = value & 0b11;
-        match group_bits {
-            0b01 => Ok(Instruction::GroupOne(GroupOneMode::try_from(value)?)),
-            0b10 => Ok(Instruction::GroupTwo(GroupTwoMode::try_from(value)?)),
-            0b00 => Ok(Instruction::GroupThree(GroupThreeMode::try_from(
-                value,
-            )?)),
-            _ => Err(()),
-        }
-    }
-}
 
 // 0xA5 = 10100101 ( 165 )
 // aaabbbcc. The aaa and cc bits determine the opcode, and the bbb bits determine the addressing mode.
@@ -452,16 +382,18 @@ fn main() {
         running: true,
         program_counter: 0,
         // memory: vec![0xA5, 0x60, 0x65, 0x61, 0x85, 0x62],
-        memory: vec![0x78, 0xd8, 0xa2, 0xff, 0x9a, 0xa9, 0x00, 0x95, 0x00, 0xca, 0xd0, 0xfb, 0x85, 0x00, 0xa9, 0x30, 0x85, 0x4c, 0x00, 0xf0, 0x00, 0xf0, 0x00, 0xf0],
+        memory: vec![
+            0x78, 0xd8, 0xa2, 0xff, 0x9a, 0xa9, 0x00, 0x95, 0x00, 0xca, 0xd0, 0xfb, 0x85, 0x00,
+            0xa9, 0x30, 0x85, 0x4c, 0x00, 0xf0, 0x00, 0xf0, 0x00, 0xf0,
+        ],
         register_a: 0,
         register_x: 0,
         register_y: 0,
         register_s: 0,
         register_p: 0,
         status_flags: StatusFlags::new(0),
-        
     };
-    
+
     // state.memory.resize(256, 0xAA);
     while state.running {
         match state.get_next_instruction() {
@@ -475,7 +407,6 @@ fn main() {
                         println!("Failed to execute instruction {:?}", instruction);
                     }
                 }
-                
             }
             None => {
                 println!("Unknown instruction");

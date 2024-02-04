@@ -329,7 +329,12 @@ impl Instruction {
                             _ => return Err(())
                         }
                     },
-                    GroupOneMode::Immediate(ref instruction) => return Err(()),
+                    GroupOneMode::Immediate(ref instruction) => {
+                        match state.consume_byte() {
+                            Some(argument) => (instruction, argument),
+                            _ => return Err(())
+                        }
+                    },
                     GroupOneMode::DirectAbsolute(ref instruction) => {
                         // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
                         match (state.consume_byte(), state.consume_byte()) {
@@ -385,6 +390,9 @@ impl Instruction {
                     SingleByteInstruction::SEI => {
                         state.status_flags.set_interrupt_disable_flag(true);
                     },
+                    SingleByteInstruction::CLD => {
+                        state.status_flags.set_decimal_flag(false);
+                    }
                     _ => return Err(())
                 }
             },

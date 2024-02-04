@@ -315,65 +315,83 @@ impl State {
 
 impl Instruction {
     fn execute<'a>(&self, state: &mut State) -> Result<(), ()>{
-        let (instruction, argument) = match *self {
-            Instruction::GroupOne(GroupOneMode::DirectZeroPage(ref instruction)) => {
-                // When instruction LDA is executed by the microprocessor, data is transferred from memory to the accumulator and stored in the accumulator.
-                match state.consume_byte() {
-                    Some(byte) => match state.fetch_memory(byte.into()) {
-                        Ok(argument) => (instruction, argument),
-                        _ => return Err(())
-                    }
-                    _ => return Err(())
-                }
-            },
-            Instruction::GroupOne(GroupOneMode::DirectAbsolute(ref instruction)) => {
-                // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
-                 match (state.consume_byte(), state.consume_byte()) {
-                    (Some(low_byte), Some(high_byte)) => {
-                        let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
-                        match state.fetch_memory(address.into()) {
-                            Ok(argument) => (instruction, argument),
+        match *self {
+            Instruction::GroupOne(ref group) => {
+                let (instruction, argument) = match group {
+                    GroupOneMode::IndirectZeroPageX(ref instruction) => return Err(()),
+                    GroupOneMode::DirectZeroPage(ref instruction) => {
+                        // When instruction LDA is executed by the microprocessor, data is transferred from memory to the accumulator and stored in the accumulator.
+                        match state.consume_byte() {
+                            Some(byte) => match state.fetch_memory(byte.into()) {
+                                Ok(argument) => (instruction, argument),
+                                _ => return Err(())
+                            }
                             _ => return Err(())
                         }
                     },
-                    _ => return Err(())
-                }
-            },
-            _ => {
-                println!("Unimplemented.");
-                return Ok(())
-            }
-        };
-        
-        match instruction {
-            GroupOneInstruction::LDA => {
-                state.register_a = argument;
-            }
-            GroupOneInstruction::ADC => {
-                
-                
-                let (argument, overflowing) = match state.status_flags.overflow_flag() {
-                    true => argument.overflowing_add(1),
-                    false => (argument, false)
+                    GroupOneMode::Immediate(ref instruction) => return Err(()),
+                    GroupOneMode::DirectAbsolute(ref instruction) => {
+                        // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
+                        match (state.consume_byte(), state.consume_byte()) {
+                            (Some(low_byte), Some(high_byte)) => {
+                                let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                                match state.fetch_memory(address.into()) {
+                                    Ok(argument) => (instruction, argument),
+                                    _ => return Err(())
+                                }
+                            },
+                            _ => return Err(())
+                        }
+                    },
+                    GroupOneMode::IndirectZeroPageY(ref instruction) => return Err(()),
+                    GroupOneMode::DirectZeroPageX(ref instruction) => return Err(()),
+                    GroupOneMode::DirectAbsoluteY(ref instruction) => return Err(()),
+                    GroupOneMode::DirectAbsoluteX(ref instruction) => return Err(()),
                 };
 
-                
-                let (argument, overflowing) = match state.register_a.overflowing_add(argument) {
-                    (value, second_overflowing) => {
-                        (value, overflowing || second_overflowing)
+                // handle outcome
+                match instruction {
+                    GroupOneInstruction::LDA => {
+                        state.register_a = argument;
+                    }
+                    GroupOneInstruction::ADC => {
+                        
+                        
+                        let (argument, overflowing) = match state.status_flags.overflow_flag() {
+                            true => argument.overflowing_add(1),
+                            false => (argument, false)
+                        };
+        
+                        
+                        let (argument, overflowing) = match state.register_a.overflowing_add(argument) {
+                            (value, second_overflowing) => {
+                                (value, overflowing || second_overflowing)
+                            }
+                        };
+        
+                        state.register_a = argument;
+                        state.status_flags.set_overflow_flag(overflowing);
+                        state.status_flags.set_zero_flag(argument == 0);
+                        state.status_flags.set_negative_flag((argument & 0b01000000) == 0b01000000);
+        
+                    }
+                    _ => {
+                        println!("Instruction {:?} implemented yet", instruction);
                     }
                 };
-
-                state.register_a = argument;
-                state.status_flags.set_overflow_flag(overflowing);
-                state.status_flags.set_zero_flag(argument == 0);
-                state.status_flags.set_negative_flag((argument & 0b01000000) == 0b01000000);
-
-            }
-            _ => {
-                println!("Instruction {:?} implemented yet", instruction);
-            }
-        }
+            },
+            Instruction::GroupSingleByte(ref instruction) => {
+                match instruction {
+                    SingleByteInstruction::SEI => {
+                        state.status_flags.set_interrupt_disable_flag(true);
+                    },
+                    _ => {
+                        println!("This single byte instruction isn't implemented");
+                    }
+                }
+            },
+            _ => return Err(())
+        };
 
         Ok(())
     }
@@ -428,7 +446,7 @@ fn main() {
         running: true,
         program_counter: 0,
         // memory: vec![0xA5, 0x60, 0x65, 0x61, 0x85, 0x62],
-        memory: vec![0xA8],
+        memory: vec![0x78, 0xd8, 0xa2, 0xff, 0x9a, 0xa9, 0x00, 0x95, 0x00, 0xca, 0xd0, 0xfb, 0x85, 0x00, 0xa9, 0x30, 0x85, 0x4c, 0x00, 0xf0, 0x00, 0xf0, 0x00, 0xf0],
         register_a: 0,
         register_x: 0,
         register_y: 0,

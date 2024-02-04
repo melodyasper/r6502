@@ -1,165 +1,169 @@
 #[derive(Debug)]
 enum Instruction {
-    GroupOne(GroupOneInstruction),
-    GroupTwo(GroupTwoInstruction),
-    GroupThree(GroupThreeInstruction),
+    GroupOne(GroupOneMode),
+    GroupTwo(GroupTwoMode),
+    GroupThree(GroupThreeMode),
 }
 
 #[derive(Debug)]
 enum GroupOneMode {
-    IndirectZeroPageX, // 0b000; (zero page,X)
-    DirectZeroPage,    // 0b001; zero page
-    Immediate,         // 0b010; #immediate
-    DirectAbsolute,    // 0b011; absolute
-    IndirectZeroPageY, // 0b100; (zero page),Y
-    DirectZeroPageX,   // 0b101; zero page,X
-    DirectAbsoluteY,   // 0b110; absolute,Y
-    DirectAbsoluteX,   // 0b111; absolute,X
+    IndirectZeroPageX(GroupOneInstruction), // 0b000; (zero page,X)
+    DirectZeroPage(GroupOneInstruction),    // 0b001; zero page
+    Immediate(GroupOneInstruction),         // 0b010; #immediate
+    DirectAbsolute(GroupOneInstruction),    // 0b011; absolute
+    IndirectZeroPageY(GroupOneInstruction), // 0b100; (zero page),Y
+    DirectZeroPageX(GroupOneInstruction),   // 0b101; zero page,X
+    DirectAbsoluteY(GroupOneInstruction),   // 0b110; absolute,Y
+    DirectAbsoluteX(GroupOneInstruction),   // 0b111; absolute,X
 }
 #[derive(Debug)]
 enum GroupOneInstruction {
-    ORA(GroupOneMode),
-    AND(GroupOneMode),
-    EOR(GroupOneMode),
-    ADC(GroupOneMode),
-    STA(GroupOneMode),
-    LDA(GroupOneMode),
-    CMP(GroupOneMode),
-    SBC(GroupOneMode),
+    ORA,
+    AND,
+    EOR,
+    ADC,
+    STA,
+    LDA,
+    CMP,
+    SBC,
 }
 
 #[derive(Debug)]
 enum GroupTwoMode {
-    Immediate,       // 0b000; #immediate
-    DirectZeroPage,  // 0b001; zero page
-    Accumulator,     // 0b010; accumulator
-    DirectAbsolute,  // 0b011; absolute
-    DirectZeroPageX, // 0b101; zero page,X
-    DirectAbsoluteX, // 0b111; absolute,X
+    Immediate(GroupTwoInstruction),       // 0b000; #immediate
+    DirectZeroPage(GroupTwoInstruction),  // 0b001; zero page
+    Accumulator(GroupTwoInstruction),     // 0b010; accumulator
+    DirectAbsolute(GroupTwoInstruction),  // 0b011; absolute
+    DirectZeroPageX(GroupTwoInstruction), // 0b101; zero page,X
+    DirectAbsoluteX(GroupTwoInstruction), // 0b111; absolute,X
 }
 
 #[derive(Debug)]
 enum GroupTwoInstruction {
-    ASL(GroupTwoMode),
-    ROL(GroupTwoMode),
-    LSR(GroupTwoMode),
-    ROR(GroupTwoMode),
-    STX(GroupTwoMode),
-    LDX(GroupTwoMode),
-    DEC(GroupTwoMode),
-    INC(GroupTwoMode),
+    ASL,
+    ROL,
+    LSR,
+    ROR,
+    STX,
+    LDX,
+    DEC,
+    INC,
 }
 
 #[derive(Debug)]
 enum GroupThreeMode {
-    Immediate,       // 0b000; #immediate
-    DirectZeroPage,  // 0b001; zero page
-    DirectAbsolute,  // 0b011; absolute
-    DirectZeroPageX, // 0b101; zero page,X
-    DirectAbsoluteX, // 0b111; absolute,X
+    Immediate(GroupThreeInstruction),       // 0b000; #immediate
+    DirectZeroPage(GroupThreeInstruction),  // 0b001; zero page
+    DirectAbsolute(GroupThreeInstruction),  // 0b011; absolute
+    DirectZeroPageX(GroupThreeInstruction), // 0b101; zero page,X
+    DirectAbsoluteX(GroupThreeInstruction), // 0b111; absolute,X
 }
 
 #[derive(Debug)]
 enum GroupThreeInstruction {
-    BIT(GroupThreeMode),         // 001
-    JMP(GroupThreeMode),         // 010
-    JMPAbsolute(GroupThreeMode), // 011
-    STY(GroupThreeMode),         // 100
-    LDY(GroupThreeMode),         // 101
-    CPY(GroupThreeMode),         // 110
-    CPX(GroupThreeMode),         // 111
+    BIT,         // 001
+    JMP,         // 010
+    JMPAbsolute, // 011
+    STY,         // 100
+    LDY,         // 101
+    CPY,         // 110
+    CPX,         // 111
 }
 
-impl TryFrom<u8> for GroupOneInstruction {
+impl TryFrom<u8> for GroupOneMode {
     type Error = ();
 
-    fn try_from(value: u8) -> Result<GroupOneInstruction, Self::Error> {
+    fn try_from(value: u8) -> Result<GroupOneMode, Self::Error> {
         let instruction_bits = (0b11100000 & value) >> 5;
         let mode_bits = (0b00011100 & value) >> 2;
 
-        let mode = match mode_bits {
-            0b000 => GroupOneMode::IndirectZeroPageX,
-            0b001 => GroupOneMode::DirectZeroPage,
-            0b010 => GroupOneMode::Immediate,
-            0b011 => GroupOneMode::DirectAbsolute,
-            0b100 => GroupOneMode::IndirectZeroPageY,
-            0b101 => GroupOneMode::DirectZeroPageX,
-            0b110 => GroupOneMode::DirectAbsoluteY,
-            0b111 => GroupOneMode::DirectAbsoluteX,
+        let instruction = match instruction_bits {
+            0b000 => GroupOneInstruction::ORA,
+            0b001 => GroupOneInstruction::AND,
+            0b010 => GroupOneInstruction::EOR,
+            0b011 => GroupOneInstruction::ADC,
+            0b100 => GroupOneInstruction::STA,
+            0b101 => GroupOneInstruction::LDA,
+            0b110 => GroupOneInstruction::CMP,
+            0b111 => GroupOneInstruction::SBC,
             _ => return Err(()),
         };
 
-        match instruction_bits {
-            0b000 => Ok(GroupOneInstruction::ORA(mode)),
-            0b001 => Ok(GroupOneInstruction::AND(mode)),
-            0b010 => Ok(GroupOneInstruction::EOR(mode)),
-            0b011 => Ok(GroupOneInstruction::ADC(mode)),
-            0b100 => Ok(GroupOneInstruction::STA(mode)),
-            0b101 => Ok(GroupOneInstruction::LDA(mode)),
-            0b110 => Ok(GroupOneInstruction::CMP(mode)),
-            0b111 => Ok(GroupOneInstruction::SBC(mode)),
-            _ => Err(()),
+         match mode_bits {
+            0b000 => Ok(GroupOneMode::IndirectZeroPageX(instruction)),
+            0b001 => Ok(GroupOneMode::DirectZeroPage(instruction)),
+            0b010 => Ok(GroupOneMode::Immediate(instruction)),
+            0b011 => Ok(GroupOneMode::DirectAbsolute(instruction)),
+            0b100 => Ok(GroupOneMode::IndirectZeroPageY(instruction)),
+            0b101 => Ok(GroupOneMode::DirectZeroPageX(instruction)),
+            0b110 => Ok(GroupOneMode::DirectAbsoluteY(instruction)),
+            0b111 => Ok(GroupOneMode::DirectAbsoluteX(instruction)),
+            _ => return Err(()),
         }
+
     }
 }
 
-impl TryFrom<u8> for GroupTwoInstruction {
+impl TryFrom<u8> for GroupTwoMode {
     type Error = ();
 
-    fn try_from(value: u8) -> Result<GroupTwoInstruction, Self::Error> {
+    fn try_from(value: u8) -> Result<GroupTwoMode, Self::Error> {
         let instruction_bits = (0b11100000 & value) >> 5;
         let mode_bits = (0b00011100 & value) >> 2;
-
-        let mode = match mode_bits {
-            0b000 => GroupTwoMode::Immediate,
-            0b001 => GroupTwoMode::DirectZeroPage,
-            0b010 => GroupTwoMode::Accumulator,
-            0b011 => GroupTwoMode::DirectAbsolute,
-            0b101 => GroupTwoMode::DirectZeroPageX,
-            0b111 => GroupTwoMode::DirectAbsoluteX,
+        let instruction = match instruction_bits {
+            0b000 => GroupTwoInstruction::ASL,
+            0b001 => GroupTwoInstruction::ROL,
+            0b010 => GroupTwoInstruction::LSR,
+            0b011 => GroupTwoInstruction::ROR,
+            0b100 => GroupTwoInstruction::STX,
+            0b101 => GroupTwoInstruction::LDX,
+            0b110 => GroupTwoInstruction::DEC,
+            0b111 => GroupTwoInstruction::INC,
             _ => return Err(()),
         };
 
-        match instruction_bits {
-            0b000 => Ok(GroupTwoInstruction::ASL(mode)),
-            0b001 => Ok(GroupTwoInstruction::ROL(mode)),
-            0b010 => Ok(GroupTwoInstruction::LSR(mode)),
-            0b011 => Ok(GroupTwoInstruction::ROR(mode)),
-            0b100 => Ok(GroupTwoInstruction::STX(mode)),
-            0b101 => Ok(GroupTwoInstruction::LDX(mode)),
-            0b110 => Ok(GroupTwoInstruction::DEC(mode)),
-            0b111 => Ok(GroupTwoInstruction::INC(mode)),
+        match mode_bits {
+            0b000 => Ok(GroupTwoMode::Immediate(instruction)),
+            0b001 => Ok(GroupTwoMode::DirectZeroPage(instruction)),
+            0b010 => Ok(GroupTwoMode::Accumulator(instruction)),
+            0b011 => Ok(GroupTwoMode::DirectAbsolute(instruction)),
+            0b101 => Ok(GroupTwoMode::DirectZeroPageX(instruction)),
+            0b111 => Ok(GroupTwoMode::DirectAbsoluteX(instruction)),
             _ => Err(()),
         }
+
+        
     }
 }
 
-impl TryFrom<u8> for GroupThreeInstruction {
+impl TryFrom<u8> for GroupThreeMode {
     type Error = ();
 
-    fn try_from(value: u8) -> Result<GroupThreeInstruction, Self::Error> {
+    fn try_from(value: u8) -> Result<GroupThreeMode, Self::Error> {
         let instruction_bits = (0b11100000 & value) >> 5;
         let mode_bits = (0b00011100 & value) >> 2;
 
-        let mode = match mode_bits {
-            0b000 => GroupThreeMode::Immediate,
-            0b001 => GroupThreeMode::DirectZeroPage,
-            0b011 => GroupThreeMode::DirectAbsolute,
-            0b101 => GroupThreeMode::DirectZeroPageX,
-            0b111 => GroupThreeMode::DirectAbsoluteX,
+        let instruction = match instruction_bits {
+            0b001 => GroupThreeInstruction::BIT,
+            0b010 => GroupThreeInstruction::JMP,
+            0b011 => GroupThreeInstruction::JMPAbsolute,
+            0b100 => GroupThreeInstruction::STY,
+            0b101 => GroupThreeInstruction::LDY,
+            0b110 => GroupThreeInstruction::CPY,
+            0b111 => GroupThreeInstruction::CPX,
             _ => return Err(()),
         };
 
-        match instruction_bits {
-            0b001 => Ok(GroupThreeInstruction::BIT(mode)),
-            0b010 => Ok(GroupThreeInstruction::JMP(mode)),
-            0b011 => Ok(GroupThreeInstruction::JMPAbsolute(mode)),
-            0b100 => Ok(GroupThreeInstruction::STY(mode)),
-            0b101 => Ok(GroupThreeInstruction::LDY(mode)),
-            0b110 => Ok(GroupThreeInstruction::CPY(mode)),
-            0b111 => Ok(GroupThreeInstruction::CPX(mode)),
+        match mode_bits {
+            0b000 => Ok(GroupThreeMode::Immediate(instruction)),
+            0b001 => Ok(GroupThreeMode::DirectZeroPage(instruction)),
+            0b011 => Ok(GroupThreeMode::DirectAbsolute(instruction)),
+            0b101 => Ok(GroupThreeMode::DirectZeroPageX(instruction)),
+            0b111 => Ok(GroupThreeMode::DirectAbsoluteX(instruction)),
             _ => Err(()),
         }
+
+    
     }
 }
 
@@ -215,7 +219,7 @@ impl State {
 impl Instruction {
     fn execute<'a>(&self, state: &mut State) -> Result<(), ()>{
         match *self {
-            Instruction::GroupOne(GroupOneInstruction::LDA(GroupOneMode::DirectZeroPage)) => {
+            Instruction::GroupOne(GroupOneMode::DirectZeroPage(GroupOneInstruction::LDA)) => {
                 // When instruction LDA is executed by the microprocessor, data is transferred from memory to the accumulator and stored in the accumulator.
                 match state.consume_byte() {
                     Some(byte) => {
@@ -231,7 +235,7 @@ impl Instruction {
                     None => Err(())
                 }
             },
-            Instruction::GroupOne(GroupOneInstruction::LDA(GroupOneMode::DirectAbsolute)) => {
+            Instruction::GroupOne(GroupOneMode::DirectAbsolute(GroupOneInstruction::LDA)) => {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
 
                 match (state.consume_byte(), state.consume_byte()) {
@@ -262,9 +266,9 @@ impl TryFrom<u8> for Instruction {
     fn try_from(value: u8) -> Result<Instruction, Self::Error> {
         let group_bits = value & 0b11;
         match group_bits {
-            0b01 => Ok(Instruction::GroupOne(GroupOneInstruction::try_from(value)?)),
-            0b10 => Ok(Instruction::GroupTwo(GroupTwoInstruction::try_from(value)?)),
-            0b00 => Ok(Instruction::GroupThree(GroupThreeInstruction::try_from(
+            0b01 => Ok(Instruction::GroupOne(GroupOneMode::try_from(value)?)),
+            0b10 => Ok(Instruction::GroupTwo(GroupTwoMode::try_from(value)?)),
+            0b00 => Ok(Instruction::GroupThree(GroupThreeMode::try_from(
                 value,
             )?)),
             _ => Err(()),

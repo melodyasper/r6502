@@ -292,11 +292,24 @@ impl Instruction {
                 state.register_a = argument;
             }
             GroupOneInstruction::ADC => {
-                let (result, set_overflow_flag) = state.register_a.overflowing_add(argument);
-                state.register_a = result;
-                if set_overflow_flag {
-                    // set_overflow_flag logic here
-                }
+                
+                
+                let (argument, overflowing) = match state.status_flags.overflow_flag() {
+                    true => argument.overflowing_add(1),
+                    false => (argument, false)
+                };
+
+                
+                let (argument, overflowing) = match state.register_a.overflowing_add(argument) {
+                    (value, second_overflowing) => {
+                        (value, overflowing || second_overflowing)
+                    }
+                };
+
+                state.register_a = argument;
+                state.status_flags.set_overflow_flag(overflowing);
+                state.status_flags.set_zero_flag(argument == 0);
+                state.status_flags.set_negative_flag((argument & 0b01000000) == 0b01000000);
 
             }
             _ => {

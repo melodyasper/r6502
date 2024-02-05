@@ -1,3 +1,5 @@
+use std::{fmt::Arguments, ops::Add};
+
 #[derive(Debug)]
 enum Instruction {
     GroupMultipleByte(MultipleByteInstruction, AddressingMode),
@@ -231,14 +233,14 @@ impl StatusFlags {
         StatusFlags { value }
     }
 
-    create_status_flag!(negative, 7);
-    create_status_flag!(overflow, 6);
-    create_status_flag!(expansion, 5);
-    create_status_flag!(break_command, 4);
-    create_status_flag!(decimal, 3);
-    create_status_flag!(interrupt_disable, 2);
-    create_status_flag!(zero, 1);
-    create_status_flag!(carry, 0);
+    create_status_flag!(negative,          0b10000000); 
+    create_status_flag!(overflow,          0b01000000); 
+    create_status_flag!(expansion,         0b00100000);
+    create_status_flag!(break_command,     0b00010000);
+    create_status_flag!(decimal,           0b00001000);
+    create_status_flag!(interrupt_disable, 0b00000100);
+    create_status_flag!(zero,              0b00000010);
+    create_status_flag!(carry,             0b00000001);
 
     // You can add more getters and setters for other bits following the pattern above.
 }
@@ -310,7 +312,7 @@ impl Instruction {
     fn execute<'a>(&self, state: &mut State) -> Result<(), ()> {
         
         let argument = match *self {
-            Instruction::GroupMultipleByte(_, AddressingMode::Immediate) => match state.consume_byte() {
+            Instruction::GroupMultipleByte(_, AddressingMode::Immediate) | Instruction::GroupMultipleByte(_, AddressingMode::Relative) => match state.consume_byte() {
                 Some(argument) => argument,
                 _ => return Err(()),
             },
@@ -381,6 +383,26 @@ impl Instruction {
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::STA,_) => {
                 let _ = state.insert_memory(argument.into(), state.register_a);
+            },
+            Instruction::GroupMultipleByte(MultipleByteInstruction::BNE, AddressingMode::Relative) => {
+                if state.status_flags.zero_flag() == false {
+                    let argument = argument as i8; // Convert back to i8 to handle negatives correctly
+                    if argument >= 0 {
+                        state.program_counter = state.program_counter.wrapping_add(argument as usize);
+                    } else {
+                        state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
+                    }
+                }
+            },
+            Instruction::GroupMultipleByte(MultipleByteInstruction::BEQ, AddressingMode::Relative) => {
+                if state.status_flags.zero_flag() {
+                    let argument = argument as i8; // Convert back to i8 to handle negatives correctly
+                    if argument >= 0 {
+                        state.program_counter = state.program_counter.wrapping_add(argument as usize);
+                    } else {
+                        state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
+                    }
+                }
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::ADC,_) => {
                 let (argument, overflowing) = match state.status_flags.overflow_flag() {

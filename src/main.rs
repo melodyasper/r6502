@@ -28,6 +28,15 @@ enum MultipleByteInstruction {
     LDY,         // 101
     CPY,         // 110
     CPX,         // 111
+    // Special bytes
+    BPL,
+    BMI,
+    BVC,
+    BVS,
+    BCC,
+    BCS,
+    BNE,
+    BEQ,
 }
 
 impl TryFrom<u8> for Instruction {
@@ -37,7 +46,7 @@ impl TryFrom<u8> for Instruction {
         let instruction_bits = (0b11100000 & value) >> 5;
         let mode_bits = (0b00011100 & value) >> 2;
 
-        // Single byte carveout as an exception
+        // Single byte and special multibyte carveout as an exception
         match value {
             0x08 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PHP)),
             0x28 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PLP)),
@@ -61,9 +70,16 @@ impl TryFrom<u8> for Instruction {
             0xBA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TSX)),
             0xCA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::DEX)),
             0xEA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::NOP)),
+            0x10 => return Ok(Instruction::GroupMultipleByte(MultipleByteInstruction::BPL, AddressingMode::Relative)),
+            0x30 => return Ok(Instruction::GroupMultipleByte(MultipleByteInstruction::BMI, AddressingMode::Relative)),
+            0x50 => return Ok(Instruction::GroupMultipleByte(MultipleByteInstruction::BVC, AddressingMode::Relative)),
+            0x70 => return Ok(Instruction::GroupMultipleByte(MultipleByteInstruction::BVS, AddressingMode::Relative)),
+            0x90 => return Ok(Instruction::GroupMultipleByte(MultipleByteInstruction::BCC, AddressingMode::Relative)),
+            0xB0 => return Ok(Instruction::GroupMultipleByte(MultipleByteInstruction::BCS, AddressingMode::Relative)),
+            0xD0 => return Ok(Instruction::GroupMultipleByte(MultipleByteInstruction::BNE, AddressingMode::Relative)),
+            0xF0 => return Ok(Instruction::GroupMultipleByte(MultipleByteInstruction::BEQ, AddressingMode::Relative)),
             _ => (),
-        };
-
+        };    
 
         match group_bits {
             0b01 => {
@@ -159,13 +175,9 @@ enum AddressingMode {
     DirectZeroPageX,
     DirectAbsoluteY,
     DirectAbsoluteX,
-    Accumulator
+    Accumulator,
+    Relative
 }
-
-
-
-
-
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -245,10 +257,14 @@ struct State {
 }
 impl State {
     fn get_next_instruction(&mut self) -> Option<Instruction> {
-        match self.consume_byte() {
+        let next_instruction = self.consume_byte();
+        match next_instruction {
             Some(value) => match Instruction::try_from(value) {
                 Ok(next_instruction) => Some(next_instruction),
-                Err(_) => None,
+                Err(_) => {
+                    println!("Couldn't figure out instruction {:#02x}", value);
+                    None
+                },
             },
             None => {
                 self.running = false;
@@ -271,12 +287,22 @@ impl State {
         let length = self.memory.len();
         if length < address {
             // TODO: Remove this hack.
-            self.memory.resize(length, 0);
+            self.memory.resize(address + 1, 0);
         }
         match self.memory.get(address) {
             Some(value) => Ok(*value),
             None => Err(()),
         }
+    }
+    fn insert_memory(&mut self, address: usize, value: u8) -> Result<(), ()> {
+        println!("Insert into memory @ {} value {}", address, value);
+        let length = self.memory.len();
+        if length < address {
+            // TODO: Remove this hack.
+            self.memory.resize(address + 1, 0);
+        }
+        self.memory[address] = value;
+        Ok(())
     }
 }
 
@@ -297,6 +323,12 @@ impl Instruction {
                     _ => return Err(()),
                 }
             },
+            Instruction::GroupMultipleByte(_, AddressingMode::DirectZeroPageX) => {
+                match state.consume_byte() {
+                    Some(argument) => argument.overflowing_add(state.register_x).0,
+                    _ => return Err(()),
+                }
+            },
             Instruction::GroupMultipleByte(_, AddressingMode::DirectAbsolute) => {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
                 match (state.consume_byte(), state.consume_byte()) {
@@ -313,7 +345,6 @@ impl Instruction {
             Instruction::GroupSingleByte(_) => 0,
             _ => return Err(())
         };
-
         match *self {
             Instruction::GroupSingleByte(ref instruction) => match instruction {
                 SingleByteInstruction::SEI => {
@@ -322,10 +353,31 @@ impl Instruction {
                 SingleByteInstruction::CLD => {
                     state.status_flags.set_decimal_flag(false);
                 },
+                SingleByteInstruction::TXS => {
+                    state.register_s = state.register_x;
+                },
+                SingleByteInstruction::DEX => {
+                    state.register_x = state.register_x.overflowing_add(255).0;
+                    state.status_flags.set_zero_flag(state.register_x == 0);
+                    state
+                        .status_flags
+                        .set_negative_flag((state.register_x & 0b01000000) == 0b01000000);
+                },
                 _ => return Err(()),
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::LDA,_) => {
                 state.register_a = argument;
+            },
+            Instruction::GroupMultipleByte(MultipleByteInstruction::LDX,_) => {
+                state.register_x = argument;
+                state.status_flags.set_zero_flag(argument == 0);
+                state
+                    .status_flags
+                    .set_negative_flag((argument & 0b01000000) == 0b01000000);
+
+            },
+            Instruction::GroupMultipleByte(MultipleByteInstruction::STA,_) => {
+                let _ = state.insert_memory(argument.into(), state.register_a);
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::ADC,_) => {
                 let (argument, overflowing) = match state.status_flags.overflow_flag() {
@@ -398,18 +450,16 @@ fn main() {
     while state.running {
         match state.get_next_instruction() {
             Some(instruction) => {
-                println!("Identified instruction: {:?}", instruction);
+                println!("{:?} | Executing", instruction);
                 match instruction.execute(&mut state) {
-                    Ok(_) => {
-                        println!("Executed instruction {:?}", instruction);
-                    }
+                    Ok(_) => (),
                     _ => {
                         println!("Failed to execute instruction {:?}", instruction);
                     }
                 }
             }
             None => {
-                println!("Unknown instruction");
+                // println!("Unknown instruction");
             }
         }
     }

@@ -258,6 +258,10 @@ struct State {
     status_flags: StatusFlags,
 }
 impl State {
+    fn print_registers(&self) {
+        println!("Registers:");
+        println!("A: {:#02x} | X: {:#02x} | Y: {:#02x} | S: {:#02x} | P: {:#02x}", self.register_a, self.register_x, self.register_y, self.register_s, self.register_p);
+    }
     fn get_next_instruction(&mut self) -> Option<Instruction> {
         let next_instruction = self.consume_byte();
         match next_instruction {
@@ -350,6 +354,16 @@ impl Instruction {
             Instruction::GroupSingleByte(_) => 0,
             _ => return Err(())
         };
+
+        match *self {
+            Instruction::GroupMultipleByte(ref instruction, _) => {
+                println!("{:?} {:?}", instruction, argument);
+            }
+            Instruction::GroupSingleByte(ref instruction) => {
+                println!("{:?}", instruction);
+            }
+        };
+
         match *self {
             Instruction::GroupSingleByte(ref instruction) => match instruction {
                 SingleByteInstruction::SEI => {
@@ -385,24 +399,24 @@ impl Instruction {
                 let _ = state.insert_memory(argument.into(), state.register_a);
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::BNE, AddressingMode::Relative) => {
-                if state.status_flags.zero_flag() == false {
-                    let argument = argument as i8; // Convert back to i8 to handle negatives correctly
-                    if argument >= 0 {
-                        state.program_counter = state.program_counter.wrapping_add(argument as usize);
-                    } else {
-                        state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
-                    }
-                }
+                // if state.status_flags.zero_flag() == false {
+                //     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
+                //     if argument >= 0 {
+                //         state.program_counter = state.program_counter.wrapping_add(argument as usize);
+                //     } else {
+                //         state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
+                //     }
+                // }
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::BEQ, AddressingMode::Relative) => {
-                if state.status_flags.zero_flag() {
-                    let argument = argument as i8; // Convert back to i8 to handle negatives correctly
-                    if argument >= 0 {
-                        state.program_counter = state.program_counter.wrapping_add(argument as usize);
-                    } else {
-                        state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
-                    }
-                }
+                // if state.status_flags.zero_flag() {
+                //     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
+                //     if argument >= 0 {
+                //         state.program_counter = state.program_counter.wrapping_add(argument as usize);
+                //     } else {
+                //         state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
+                //     }
+                // }
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::ADC,_) => {
                 let (argument, overflowing) = match state.status_flags.overflow_flag() {
@@ -426,6 +440,7 @@ impl Instruction {
             },
             _ => return Err(()),
         }
+        state.print_registers();
         Ok(())
     }
 }
@@ -475,7 +490,7 @@ fn main() {
     while state.running {
         match state.get_next_instruction() {
             Some(instruction) => {
-                println!("{:?} | Executing", instruction);
+                // println!("{:?} | Executing", instruction);
                 match instruction.execute(&mut state) {
                     Ok(_) => (),
                     _ => {

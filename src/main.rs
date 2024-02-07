@@ -445,10 +445,7 @@ impl Instruction {
             },
             Instruction::GroupMultipleByte(_, AddressingMode::DirectZeroPageX) => {
                 match state.consume_byte() {
-                    Some(byte) => match state.fetch_memory(byte.overflowing_add(state.register_x).0.into()) {
-                        Ok(argument) => argument,
-                        _ => return Err(()),
-                    },
+                    Some(byte) => byte.overflowing_add(state.register_x).0.into(),
                     _ => return Err(()),
                 }
             },

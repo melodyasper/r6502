@@ -215,14 +215,14 @@ impl TryFrom<u8> for Instruction {
 impl Instruction {
     pub fn execute<'a>(&self, state: &mut State) -> Result<(), ()> {
         
-        let argument = match *self {
+        let argument: u16 = match *self {
             Instruction::GroupMultipleByte(_, AddressingMode::Immediate) | Instruction::GroupMultipleByte(_, AddressingMode::Relative) => match state.consume_byte() {
-                Some(argument) => argument,
+                Some(argument) => argument.into(),
                 _ => return Err(()),
             },
             Instruction::GroupMultipleByte(_, AddressingMode::DirectZeroPage) => {
                 match state.consume_byte() {
-                    Some(argument) => argument,
+                    Some(argument) => argument.into(),
                     _ => return Err(()),
                 }
             },
@@ -237,10 +237,7 @@ impl Instruction {
                 match (state.consume_byte(), state.consume_byte()) {
                     (Some(low_byte), Some(high_byte)) => {
                         let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
-                        match state.fetch_memory(address.into()) {
-                            Ok(argument) => argument,
-                            _ => return Err(()),
-                        }
+                        address
                     }
                     _ => return Err(()),
                 }
@@ -279,10 +276,10 @@ impl Instruction {
                 _ => return Err(()),
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::LDA,_) => {
-                state.register_a = argument;
+                state.register_a = argument as u8;
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::LDX,_) => {
-                state.register_x = argument;
+                state.register_x = argument as u8;
                 state.status_flags.set_zero_flag(argument == 0);
                 state
                     .status_flags
@@ -292,6 +289,9 @@ impl Instruction {
             Instruction::GroupMultipleByte(MultipleByteInstruction::STA,_) => {
                 let _ = state.write_memory(argument.into(), state.register_a);
             },
+            Instruction::GroupMultipleByte(MultipleByteInstruction::JMP,_) => {
+                state.program_counter = argument.into();
+            }
             Instruction::GroupMultipleByte(MultipleByteInstruction::BNE, AddressingMode::Relative) => {
                 // if state.status_flags.zero_flag() == false {
                 //     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
@@ -319,7 +319,7 @@ impl Instruction {
                 };
 
                 let (argument, overflowing) =
-                    match state.register_a.overflowing_add(argument) {
+                    match state.register_a.overflowing_add(argument as u8) {
                         (value, second_overflowing) => {
                             (value, overflowing || second_overflowing)
                         }

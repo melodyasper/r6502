@@ -54,9 +54,8 @@ pub struct State {
 }
 
 impl State {
-    fn print_registers(&self) {
-        println!("Registers:");
-        println!("A: {:#02x} | X: {:#02x} | Y: {:#02x} | S: {:#02x} | P: {:#02x}", self.register_a, self.register_x, self.register_y, self.register_s, self.register_p);
+    pub fn print_registers(&self) {
+        println!("PC: {:#02x} | A: {:#02x} | X: {:#02x} | Y: {:#02x} | S: {:#02x} | P: {:#02x}", self.program_counter, self.register_a, self.register_x, self.register_y, self.register_s, self.register_p);
     }
     pub fn get_next_instruction(&mut self) -> Option<Instruction> {
         let next_instruction = self.consume_byte();
@@ -99,6 +98,7 @@ impl State {
         }
     }
     pub fn write_memory(&mut self, address: usize, value: u8) -> Result<(), ()> {
+        println!("Writing to {:x} a value of {:x}", address, value);
         // println!("Insert into memory @ {} value {}", address, value);
         if address <= u8::MAX.into() {
             let device_memory = DeviceMemory::try_from(address as u8);

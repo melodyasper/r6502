@@ -293,24 +293,24 @@ impl Instruction {
                 state.program_counter = argument.into();
             }
             Instruction::GroupMultipleByte(MultipleByteInstruction::BNE, AddressingMode::Relative) => {
-                // if state.status_flags.zero_flag() == false {
-                //     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
-                //     if argument >= 0 {
-                //         state.program_counter = state.program_counter.wrapping_add(argument as usize);
-                //     } else {
-                //         state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
-                //     }
-                // }
+                if state.status_flags.zero_flag() == false {
+                    let argument = argument as i8; // Convert back to i8 to handle negatives correctly
+                    if argument >= 0 {
+                        state.program_counter = state.program_counter.wrapping_add(argument as usize);
+                    } else {
+                        state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
+                    }
+                }
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::BEQ, AddressingMode::Relative) => {
-                // if state.status_flags.zero_flag() {
-                //     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
-                //     if argument >= 0 {
-                //         state.program_counter = state.program_counter.wrapping_add(argument as usize);
-                //     } else {
-                //         state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
-                //     }
-                // }
+                if state.status_flags.zero_flag() {
+                    let argument = argument as i8; // Convert back to i8 to handle negatives correctly
+                    if argument >= 0 {
+                        state.program_counter = state.program_counter.wrapping_add(argument as usize);
+                    } else {
+                        state.program_counter = state.program_counter.wrapping_sub(argument.abs() as usize);
+                    }
+                }
             },
             Instruction::GroupMultipleByte(MultipleByteInstruction::ADC,_) => {
                 let (argument, overflowing) = match state.status_flags.overflow_flag() {
@@ -334,7 +334,7 @@ impl Instruction {
             },
             _ => return Err(()),
         }
-        // state.print_registers();
+        state.print_registers();
         Ok(())
     }
 }

@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 paste = "1.0.14"
+sdl2 = "0.36.0"

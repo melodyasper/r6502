@@ -1,7 +1,13 @@
 mod emulator;
 use crate::emulator::state::{State, StatusFlags};
-
+use crate::emulator::display::Renderer;
+use std::thread;
 fn main() {
+    thread::spawn(|| {
+        let mut renderer = Renderer {};
+        renderer.start();
+    });
+
     // Instructions from https://codeburst.io/an-introduction-to-6502-assembly-and-low-level-programming-7c11fa6b9cb9
     // LDA   $60
     // ADC   $61

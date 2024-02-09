@@ -1,5 +1,6 @@
 use crate::emulator::instructions::Instruction;
 use crate::emulator::memory::DeviceMemory;
+use paste::paste;
 
 #[derive(Debug)]
 pub struct StatusFlags {
@@ -7,7 +8,7 @@ pub struct StatusFlags {
 }
 macro_rules! create_status_flag {
     ($name:ident, $value:expr) => {
-        ::paste::paste! {
+        paste! {
             pub fn [< $name _flag >] (&self) -> bool {
                 (self.value & $value) != 0
             }

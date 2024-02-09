@@ -2,10 +2,14 @@ use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use crate::emulator::state::State;
+use crate::emulator::colors::ntsc_to_rgb;
 
+use super::memory::DeviceMemory;
 
 pub struct Renderer {
-
+    pub state: Arc<Mutex<State>>
 }
 
 impl Renderer{
@@ -27,8 +31,9 @@ impl Renderer{
         let mut event_pump = sdl_context.event_pump()?;
         let mut i = 0;
         'running: loop {
-            i = (i + 1) % 255;
-            canvas.set_draw_color(Color::RGB(i, 64, 255 - i));
+            let background_color = ntsc_to_rgb(self.state.lock().unwrap().fetch_memory(u8::try_from(DeviceMemory::COLUBK).unwrap().into()).unwrap());
+
+            canvas.set_draw_color(Color::RGB(background_color.0, background_color.1, background_color.2));
             canvas.clear();
             for event in event_pump.poll_iter() {
                 match event {

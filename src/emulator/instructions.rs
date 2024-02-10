@@ -473,6 +473,30 @@ impl Instruction {
                     .flags
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
+            Instruction::GroupMultipleByte(MultiInstruction::CPX, _) => {
+                let argument = match state.fetch_memory(argument.into()) {
+                    Ok(argument) => argument,
+                    Err(_) => return Err(()),
+                };
+                let result = state.x - argument;
+                state.flags.set_zero_flag(result == 0);
+                state.flags.set_carry_flag(state.x >= argument);
+                state
+                    .flags
+                    .set_negative_flag((argument & 0b10000000) == 0b10000000)
+            },
+            Instruction::GroupMultipleByte(MultiInstruction::CPY, _) => {
+                let argument = match state.fetch_memory(argument.into()) {
+                    Ok(argument) => argument,
+                    Err(_) => return Err(()),
+                };
+                let result = state.y - argument;
+                state.flags.set_zero_flag(result == 0);
+                state.flags.set_carry_flag(state.y >= argument);
+                state
+                    .flags
+                    .set_negative_flag((argument & 0b10000000) == 0b10000000)
+            },
             Instruction::GroupMultipleByte(MultiInstruction::LDA, _) => {
                 state.a = argument as u8;
             },

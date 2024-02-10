@@ -1,5 +1,5 @@
 mod emulator;
-use crate::emulator::state::{State, StatusFlags};
+use crate::emulator::state::{SystemState, StatusFlags};
 use crate::emulator::display::Renderer;
 use std::thread;
 use std::sync::{Arc, Mutex};
@@ -20,17 +20,17 @@ fn main() {
     ]);
 
     // https://llx.com/Neil/a2/opcodes.html
-    let state = Arc::new(Mutex::new( State {
+    let state = Arc::new(Mutex::new( SystemState {
         running: true,
-        program_counter: 0xF000,
+        pc: 0xF000,
         // memory: vec![0xA5, 0x60, 0x65, 0x61, 0x85, 0x62],
-        memory: memory,
-        register_a: 0,
-        register_x: 0,
-        register_y: 0,
-        register_s: 0,
-        register_p: 0,
-        status_flags: StatusFlags::new(0),
+        m: memory,
+        a: 0,
+        x: 0,
+        y: 0,
+        s: 0,
+        p: 0,
+        flags: StatusFlags::new(0),
     }));
 
 

@@ -2,6 +2,12 @@ use crate::emulator::instructions::Instruction;
 use crate::emulator::memory::DeviceMemory;
 use paste::paste;
 
+use std::sync::Mutex;
+use std::{fs::File, sync::Arc};
+use std::io::Read;
+use serde_json::{Result as SerdeResult, Value};
+
+
 #[derive(Debug)]
 pub struct StatusFlags {
     value: u8,
@@ -115,5 +121,98 @@ impl State {
         }
         self.memory[address] = value;
         Ok(())
+    }
+}
+
+
+
+
+
+// #[derive(Deserialize)]
+// struct TestRam {
+//     data: (usize, u8),
+// }
+// struct TestRegisters {
+//     pc: usize,
+//     s: u8,
+//     a: u8, 
+//     x: u8,
+//     y: u8,
+//     p: u8,
+//     ram: Vec<TestRam>
+// }
+// struct TestCase<'a> {
+//     name: &'a str,
+//     initial: TestRegisters,
+//     r#final: TestRegisters,
+//     cycles: Vec<(usize, u8, String)>,
+// }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_folder_a1() {
+        let mut file = File::open("external/ProcessorTests/6502/v1/a0.json").unwrap();
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).unwrap();
+
+        
+        let v: Value = serde_json::from_str(&contents).unwrap();
+        for value in v.as_array().unwrap().into_iter() {
+            let mut memory: Vec<u8> = Vec::new();
+            memory.resize(128_000, 0x0);
+            let state = Arc::new(Mutex::new( State {
+                running: true,
+                program_counter: value["initial"]["pc"].as_u64().unwrap() as usize,
+                // memory: vec![0xA5, 0x60, 0x65, 0x61, 0x85, 0x62],
+                memory: memory,
+                register_a: value["initial"]["a"].as_u64().unwrap() as u8,
+                register_x: value["initial"]["x"].as_u64().unwrap() as u8,
+                register_y: value["initial"]["y"].as_u64().unwrap() as u8,
+                register_s: value["initial"]["s"].as_u64().unwrap() as u8,
+                register_p: value["initial"]["p"].as_u64().unwrap() as u8,
+                status_flags: StatusFlags::new(0),
+            }));
+
+            let mut state = state.lock().unwrap();
+            for memory in value["initial"]["ram"].as_array().unwrap().iter() {
+                let memory = memory.as_array().unwrap();
+                let address = memory.get(0).unwrap().as_u64().unwrap() as usize;
+                let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
+                state.write_memory(address, value).unwrap();
+            }
+            
+
+            loop
+            {
+                if state.running {
+                    match state.get_next_instruction() {
+                        Some(instruction) => {
+                            // println!("{:?} | Executing", instruction);
+                            match instruction.execute(&mut state) {
+                                Ok(_) => (),
+                                _ => {
+                                    println!("Failed to execute instruction {:?}", instruction);
+                                    state.running = false;
+                                }
+                            }
+                        }
+                        None => {
+                            // println!("Unknown instruction");
+                            state.running = false;
+                        }
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+
+        }
+        
+        assert_eq!(4, 2+1);
     }
 }

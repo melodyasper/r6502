@@ -1,0 +1,3 @@
+[submodule "external/ProcessorTests"]
+	path = external/ProcessorTests
+	url = git@github.com:TomHarte/ProcessorTests.git

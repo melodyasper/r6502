@@ -1,0 +1,46 @@
+#b main.rs:484
+help b
+b main.rs:484
+r
+p *self
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+c
+p *self
+r
+c
+c
+c
+c
+c
+c
+c
+p *self
+p state.memory 
+p/x state.memory 
+c
+c
+c
+r
+c
+c
+c
+c
+c
+c
+c
+c
+c
+p *self
+c
+p *self
+p argument
+p/x argument

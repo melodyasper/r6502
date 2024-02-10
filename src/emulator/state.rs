@@ -8,7 +8,7 @@ use std::io::Read;
 use serde_json::{Result as SerdeResult, Value};
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct StatusFlags {
     value: u8,
 }
@@ -46,7 +46,7 @@ impl StatusFlags {
     // You can add more getters and setters for other bits following the pattern above.
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct State {
     pub running: bool,
     pub program_counter: usize,

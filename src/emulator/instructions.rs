@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 use crate::emulator::state::SystemState;
 
 #[derive(Debug)]
@@ -14,7 +12,6 @@ pub enum AddressingMode {
     DirectAbsoluteX,
     Accumulator,
     Relative,
-    None
 }
 
 #[derive(Debug)]

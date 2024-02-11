@@ -238,31 +238,6 @@ impl Instruction {
         };
 
         match self.opcode {
-            OpCode::CLC => {
-                state.flags.set_carry_flag(false);
-            },
-            OpCode::CLD => {
-                state.flags.set_decimal_flag(false);
-            },
-            OpCode::CLI => {
-                state.flags.set_interrupt_disable_flag(false);
-            },
-            OpCode::CLV => {
-                state.flags.set_overflow_flag(false);
-            },
-            OpCode::DEX => {
-                state.x = state.x.overflowing_add(255).0;
-                state.flags.set_zero_flag(state.x == 0);
-                state
-                    .flags
-                    .set_negative_flag((state.x & 0b10000000) == 0b10000000);
-            },
-            OpCode::SEI => {
-                state.flags.set_interrupt_disable_flag(true);
-            },
-            OpCode::TXS => {
-                state.s = state.x;
-            },
             OpCode::ADC => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
@@ -411,6 +386,18 @@ impl Instruction {
                     }
                 }
             },
+            OpCode::CLC => {
+                state.flags.set_carry_flag(false);
+            },
+            OpCode::CLD => {
+                state.flags.set_decimal_flag(false);
+            },
+            OpCode::CLI => {
+                state.flags.set_interrupt_disable_flag(false);
+            },
+            OpCode::CLV => {
+                state.flags.set_overflow_flag(false);
+            },
             OpCode::CMP => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
@@ -447,6 +434,89 @@ impl Instruction {
                     .flags
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
+            OpCode::DEC => {
+                let m = match state.fetch_memory(argument.into()) {
+                    Ok(m) => m,
+                    Err(_) => return Err(()),
+                };
+
+                let (value, _) = m.overflowing_sub(1);
+
+                match state.write_memory(argument.into(), value) {
+                    Err(_) => return Err(()),
+                    _ => (),
+                };
+
+                state.flags.set_zero_flag(value == 0);
+                state
+                    .flags
+                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+            },
+            OpCode::DEX => {
+                state.y = state.x.overflowing_sub(1).0;
+                state.flags.set_zero_flag(state.x == 0);
+                state
+                    .flags
+                    .set_negative_flag((state.x & 0b10000000) == 0b10000000);
+            },
+            OpCode::DEY => {
+                state.y = state.x.overflowing_sub(1).0;
+                state.flags.set_zero_flag(state.y == 0);
+                state
+                    .flags
+                    .set_negative_flag((state.y & 0b10000000) == 0b10000000);
+            },
+            OpCode::EOR => {
+                let m = match state.fetch_memory(argument.into()) {
+                    Ok(m) => m,
+                    Err(_) => return Err(()),
+                };
+                state.a = state.a ^ m;
+                state.flags.set_zero_flag(state.a == 0);
+                state
+                    .flags
+                    .set_negative_flag((state.a & 0b10000000) == 0b10000000);
+            },
+            OpCode::INC => {
+                let m = match state.fetch_memory(argument.into()) {
+                    Ok(m) => m,
+                    Err(_) => return Err(()),
+                };
+
+                let (value, _) = m.overflowing_add(1);
+
+                match state.write_memory(argument.into(), value) {
+                    Err(_) => return Err(()),
+                    _ => (),
+                };
+
+                state.flags.set_zero_flag(value == 0);
+                state
+                    .flags
+                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+            },
+            OpCode::INX => {
+                let (value, _) = state.x.overflowing_add(1);
+
+                state.flags.set_zero_flag(value == 0);
+                state
+                    .flags
+                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+            },
+            OpCode::INY => {
+                let (value, _) = state.y.overflowing_add(1);
+
+                state.flags.set_zero_flag(value == 0);
+                state
+                    .flags
+                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+            },
+            OpCode::JMP => {
+                state.pc = argument.into();
+            },
+            OpCode::JSR => {
+
+            },
             OpCode::LDA => {
                 state.a = argument as u8;
             },
@@ -457,14 +527,17 @@ impl Instruction {
                     .flags
                     .set_negative_flag((state.x & 0b01000000) == 0b01000000);
             },
+            OpCode::SEI => {
+                state.flags.set_interrupt_disable_flag(true);
+            },
             OpCode::STA => {
                 let _ = state.write_memory(argument.into(), state.a);
             },
-            OpCode::JMP => {
-                state.pc = argument.into();
+            OpCode::TXS => {
+                state.s = state.x;
             },
-
-
+            
+            
             _ => return Err(()),
         }
         // state.print_registers();

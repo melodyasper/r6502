@@ -14,15 +14,17 @@ pub enum AddressingMode {
     DirectAbsoluteX,
     Accumulator,
     Relative,
+    None
 }
 
 #[derive(Debug)]
-pub enum Instruction {
-    GroupMultipleByte(MultiInstruction, AddressingMode),
-    GroupSingleByte(SingleByteInstruction),
+pub struct Instruction {
+    opcode: OpCode,
+    mode: Option<AddressingMode>,
 }
+
 #[derive(Debug)]
-pub enum MultiInstruction {
+pub enum OpCode {
     ORA,
     AND,
     EOR,
@@ -55,11 +57,6 @@ pub enum MultiInstruction {
     BCS,
     BNE,
     BEQ,
-}
-
-#[repr(u8)]
-#[derive(Debug)]
-pub enum SingleByteInstruction {
     PHP,
     PLP,
     PHA,
@@ -84,6 +81,7 @@ pub enum SingleByteInstruction {
     NOP,
 }
 
+
 impl TryFrom<u8> for Instruction {
     type Error = ();
     fn try_from(value: u8) -> Result<Instruction, Self::Error> {
@@ -93,90 +91,50 @@ impl TryFrom<u8> for Instruction {
 
         // Single byte and special multibyte carveout as an exception
         match value {
-            0x08 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PHP)),
-            0x28 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PLP)),
-            0x48 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PHA)),
-            0x68 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::PLA)),
-            0x88 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::DEY)),
-            0xA8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TAY)),
-            0xC8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::INY)),
-            0xE8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::INX)),
-            0x18 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::CLC)),
-            0x38 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::SEC)),
-            0x58 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::CLI)),
-            0x78 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::SEI)),
-            0x98 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TYA)),
-            0xB8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::CLV)),
-            0xD8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::CLD)),
-            0xF8 => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::SED)),
-            0x8A => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TXA)),
-            0x9A => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TXS)),
-            0xAA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TAX)),
-            0xBA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::TSX)),
-            0xCA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::DEX)),
-            0xEA => return Ok(Instruction::GroupSingleByte(SingleByteInstruction::NOP)),
-            0x10 => {
-                return Ok(Instruction::GroupMultipleByte(
-                    MultiInstruction::BPL,
-                    AddressingMode::Relative,
-                ))
-            }
-            0x30 => {
-                return Ok(Instruction::GroupMultipleByte(
-                    MultiInstruction::BMI,
-                    AddressingMode::Relative,
-                ))
-            }
-            0x50 => {
-                return Ok(Instruction::GroupMultipleByte(
-                    MultiInstruction::BVC,
-                    AddressingMode::Relative,
-                ))
-            }
-            0x70 => {
-                return Ok(Instruction::GroupMultipleByte(
-                    MultiInstruction::BVS,
-                    AddressingMode::Relative,
-                ))
-            }
-            0x90 => {
-                return Ok(Instruction::GroupMultipleByte(
-                    MultiInstruction::BCC,
-                    AddressingMode::Relative,
-                ))
-            }
-            0xB0 => {
-                return Ok(Instruction::GroupMultipleByte(
-                    MultiInstruction::BCS,
-                    AddressingMode::Relative,
-                ))
-            }
-            0xD0 => {
-                return Ok(Instruction::GroupMultipleByte(
-                    MultiInstruction::BNE,
-                    AddressingMode::Relative,
-                ))
-            }
-            0xF0 => {
-                return Ok(Instruction::GroupMultipleByte(
-                    MultiInstruction::BEQ,
-                    AddressingMode::Relative,
-                ))
-            }
+            0x08 => return Ok(Instruction { opcode: OpCode::PHP, mode: None }),
+            0x28 => return Ok(Instruction { opcode: OpCode::PLP, mode: None }),
+            0x48 => return Ok(Instruction { opcode: OpCode::PHA, mode: None }),
+            0x68 => return Ok(Instruction { opcode: OpCode::PLA, mode: None }),
+            0x88 => return Ok(Instruction { opcode: OpCode::DEY, mode: None }),
+            0xA8 => return Ok(Instruction { opcode: OpCode::TAY, mode: None }),
+            0xC8 => return Ok(Instruction { opcode: OpCode::INY, mode: None }),
+            0xE8 => return Ok(Instruction { opcode: OpCode::INX, mode: None }),
+            0x18 => return Ok(Instruction { opcode: OpCode::CLC, mode: None }),
+            0x38 => return Ok(Instruction { opcode: OpCode::SEC, mode: None }),
+            0x58 => return Ok(Instruction { opcode: OpCode::CLI, mode: None }),
+            0x78 => return Ok(Instruction { opcode: OpCode::SEI, mode: None }),
+            0x98 => return Ok(Instruction { opcode: OpCode::TYA, mode: None }),
+            0xB8 => return Ok(Instruction { opcode: OpCode::CLV, mode: None }),
+            0xD8 => return Ok(Instruction { opcode: OpCode::CLD, mode: None }),
+            0xF8 => return Ok(Instruction { opcode: OpCode::SED, mode: None }),
+            0x8A => return Ok(Instruction { opcode: OpCode::TXA, mode: None }),
+            0x9A => return Ok(Instruction { opcode: OpCode::TXS, mode: None }),
+            0xAA => return Ok(Instruction { opcode: OpCode::TAX, mode: None }),
+            0xBA => return Ok(Instruction { opcode: OpCode::TSX, mode: None }),
+            0xCA => return Ok(Instruction { opcode: OpCode::DEX, mode: None }),
+            0xEA => return Ok(Instruction { opcode: OpCode::NOP, mode: None }),
+            0x10 => return Ok(Instruction {opcode: OpCode::BPL, mode: Some(AddressingMode::Relative) }),
+            0x30 => return Ok(Instruction {opcode: OpCode::BMI, mode: Some(AddressingMode::Relative) }),
+            0x50 => return Ok(Instruction {opcode: OpCode::BVC, mode: Some(AddressingMode::Relative) }),
+            0x70 => return Ok(Instruction {opcode: OpCode::BVS, mode: Some(AddressingMode::Relative) }),
+            0x90 => return Ok(Instruction {opcode: OpCode::BCC, mode: Some(AddressingMode::Relative) }),
+            0xB0 => return Ok(Instruction {opcode: OpCode::BCS, mode: Some(AddressingMode::Relative) }),
+            0xD0 => return Ok(Instruction {opcode: OpCode::BNE, mode: Some(AddressingMode::Relative) }),
+            0xF0 => return Ok(Instruction {opcode: OpCode::BEQ, mode: Some(AddressingMode::Relative) }),
             _ => (),
         };
 
         match group_bits {
             0b01 => {
                 let instruction = match instruction_bits {
-                    0b000 => MultiInstruction::ORA,
-                    0b001 => MultiInstruction::AND,
-                    0b010 => MultiInstruction::EOR,
-                    0b011 => MultiInstruction::ADC,
-                    0b100 => MultiInstruction::STA,
-                    0b101 => MultiInstruction::LDA,
-                    0b110 => MultiInstruction::CMP,
-                    0b111 => MultiInstruction::SBC,
+                    0b000 => OpCode::ORA,
+                    0b001 => OpCode::AND,
+                    0b010 => OpCode::EOR,
+                    0b011 => OpCode::ADC,
+                    0b100 => OpCode::STA,
+                    0b101 => OpCode::LDA,
+                    0b110 => OpCode::CMP,
+                    0b111 => OpCode::SBC,
                     _ => return Err(()),
                 };
 
@@ -192,18 +150,18 @@ impl TryFrom<u8> for Instruction {
                     _ => return Err(()),
                 };
 
-                Ok(Instruction::GroupMultipleByte(instruction, mode))
+                Ok(Instruction{ opcode: instruction, mode: Some(mode) })
             }
             0b10 => {
                 let instruction = match instruction_bits {
-                    0b000 => MultiInstruction::ASL,
-                    0b001 => MultiInstruction::ROL,
-                    0b010 => MultiInstruction::LSR,
-                    0b011 => MultiInstruction::ROR,
-                    0b100 => MultiInstruction::STX,
-                    0b101 => MultiInstruction::LDX,
-                    0b110 => MultiInstruction::DEC,
-                    0b111 => MultiInstruction::INC,
+                    0b000 => OpCode::ASL,
+                    0b001 => OpCode::ROL,
+                    0b010 => OpCode::LSR,
+                    0b011 => OpCode::ROR,
+                    0b100 => OpCode::STX,
+                    0b101 => OpCode::LDX,
+                    0b110 => OpCode::DEC,
+                    0b111 => OpCode::INC,
                     _ => return Err(()),
                 };
 
@@ -217,17 +175,17 @@ impl TryFrom<u8> for Instruction {
                     _ => return Err(()),
                 };
 
-                Ok(Instruction::GroupMultipleByte(instruction, mode))
+                Ok(Instruction{ opcode: instruction, mode: Some(mode) })
             }
             0b00 => {
                 let instruction = match instruction_bits {
-                    0b001 => MultiInstruction::BIT,
-                    0b010 => MultiInstruction::JMP,
-                    0b011 => MultiInstruction::JMPAbsolute,
-                    0b100 => MultiInstruction::STY,
-                    0b101 => MultiInstruction::LDY,
-                    0b110 => MultiInstruction::CPY,
-                    0b111 => MultiInstruction::CPX,
+                    0b001 => OpCode::BIT,
+                    0b010 => OpCode::JMP,
+                    0b011 => OpCode::JMPAbsolute,
+                    0b100 => OpCode::STY,
+                    0b101 => OpCode::LDY,
+                    0b110 => OpCode::CPY,
+                    0b111 => OpCode::CPX,
                     _ => return Err(()),
                 };
 
@@ -240,7 +198,7 @@ impl TryFrom<u8> for Instruction {
                     _ => return Err(()),
                 };
 
-                Ok(Instruction::GroupMultipleByte(instruction, mode))
+                Ok(Instruction{ opcode: instruction, mode: Some(mode) })
             }
             _ => Err(()),
         }
@@ -249,27 +207,26 @@ impl TryFrom<u8> for Instruction {
 
 impl Instruction {
     pub fn execute<'a>(&self, state: &mut SystemState) -> Result<(), ()> {
-        let argument: u16 = match *self {
-            Instruction::GroupMultipleByte(_, AddressingMode::Immediate)
-            | Instruction::GroupMultipleByte(_, AddressingMode::Relative) => {
+        let argument: u16 = match self.mode {
+            Some(AddressingMode::Immediate | AddressingMode::Relative) => {
                 match state.consume_byte() {
                     Some(argument) => argument.into(),
                     _ => return Err(()),
                 }
             }
-            Instruction::GroupMultipleByte(_, AddressingMode::DirectZeroPage) => {
+            Some(AddressingMode::DirectZeroPage) => {
                 match state.consume_byte() {
                     Some(argument) => argument.into(),
                     _ => return Err(()),
                 }
             }
-            Instruction::GroupMultipleByte(_, AddressingMode::DirectZeroPageX) => {
+            Some(AddressingMode::DirectZeroPageX) => {
                 match state.consume_byte() {
                     Some(byte) => byte.overflowing_add(state.x).0.into(),
                     _ => return Err(()),
                 }
             }
-            Instruction::GroupMultipleByte(_, AddressingMode::DirectAbsolute) => {
+            Some(AddressingMode::DirectAbsolute) => {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
                 match (state.consume_byte(), state.consume_byte()) {
                     (Some(low_byte), Some(high_byte)) => {
@@ -279,41 +236,37 @@ impl Instruction {
                     _ => return Err(()),
                 }
             }
-            Instruction::GroupSingleByte(_) => 0,
+            None => 0,
             _ => return Err(()),
         };
 
-        match *self {
-            Instruction::GroupSingleByte(ref instruction) => match instruction {
-                SingleByteInstruction::CLC => {
-                    state.flags.set_carry_flag(false);
-                },
-                SingleByteInstruction::CLD => {
-                    state.flags.set_decimal_flag(false);
-                },
-                SingleByteInstruction::CLI => {
-                    state.flags.set_interrupt_disable_flag(false);
-                },
-                SingleByteInstruction::CLV => {
-                    state.flags.set_overflow_flag(false);
-                },
-                SingleByteInstruction::DEX => {
-                    state.x = state.x.overflowing_add(255).0;
-                    state.flags.set_zero_flag(state.x == 0);
-                    state
-                        .flags
-                        .set_negative_flag((state.x & 0b10000000) == 0b10000000);
-                },
-                SingleByteInstruction::SEI => {
-                    state.flags.set_interrupt_disable_flag(true);
-                },
-                SingleByteInstruction::TXS => {
-                    state.s = state.x;
-                },
-                
-                _ => return Err(()),
+        match self.opcode {
+            OpCode::CLC => {
+                state.flags.set_carry_flag(false);
             },
-            Instruction::GroupMultipleByte(MultiInstruction::ADC, _) => {
+            OpCode::CLD => {
+                state.flags.set_decimal_flag(false);
+            },
+            OpCode::CLI => {
+                state.flags.set_interrupt_disable_flag(false);
+            },
+            OpCode::CLV => {
+                state.flags.set_overflow_flag(false);
+            },
+            OpCode::DEX => {
+                state.x = state.x.overflowing_add(255).0;
+                state.flags.set_zero_flag(state.x == 0);
+                state
+                    .flags
+                    .set_negative_flag((state.x & 0b10000000) == 0b10000000);
+            },
+            OpCode::SEI => {
+                state.flags.set_interrupt_disable_flag(true);
+            },
+            OpCode::TXS => {
+                state.s = state.x;
+            },
+            OpCode::ADC => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
                     Err(_) => return Err(()),
@@ -332,7 +285,7 @@ impl Instruction {
                 state.a = result as u8;
                 state.flags.set_zero_flag(state.a == 0);
             }
-            Instruction::GroupMultipleByte(MultiInstruction::AND, _) => {
+            OpCode::AND => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
                     Err(_) => return Err(()),
@@ -343,9 +296,9 @@ impl Instruction {
                     .flags
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000)
             }
-            Instruction::GroupMultipleByte(MultiInstruction::ASL, ref mode) => {
-                let location = match mode {
-                    AddressingMode::Accumulator => state.a,
+            OpCode::ASL => {
+                let location = match self.mode {
+                    Some(AddressingMode::Accumulator) => state.a,
                     _ => match state.fetch_memory(argument.into()) {
                         Ok(a) => a,
                         Err(_) => return Err(()),
@@ -353,8 +306,8 @@ impl Instruction {
                 };
                 let (value, overflow) = location.overflowing_shl(1);
 
-                match mode {
-                    AddressingMode::Accumulator => {
+                match self.mode {
+                    Some(AddressingMode::Accumulator) => {
                         state.a = value;
                     }
                     _ => match state.write_memory(argument.into(), value) {
@@ -369,7 +322,7 @@ impl Instruction {
                     .flags
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             }
-            Instruction::GroupMultipleByte(MultiInstruction::BCC, AddressingMode::Relative) => {
+            OpCode::BCC => {
                 if state.flags.carry_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
@@ -379,7 +332,7 @@ impl Instruction {
                     }
                 }
             }
-            Instruction::GroupMultipleByte(MultiInstruction::BCS, AddressingMode::Relative) => {
+            OpCode::BCS => {
                 if state.flags.carry_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
@@ -389,7 +342,7 @@ impl Instruction {
                     }
                 }
             }
-            Instruction::GroupMultipleByte(MultiInstruction::BEQ, AddressingMode::Relative) => {
+            OpCode::BEQ => {
                 if state.flags.zero_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
@@ -399,7 +352,7 @@ impl Instruction {
                     }
                 }
             },
-            Instruction::GroupMultipleByte(MultiInstruction::BIT, _) => {
+            OpCode::BIT => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
                     Err(_) => return Err(()),
@@ -411,7 +364,7 @@ impl Instruction {
                     .flags
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
-            Instruction::GroupMultipleByte(MultiInstruction::BMI, AddressingMode::Relative) => {
+            OpCode::BMI => {
                 if state.flags.negative_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
@@ -421,7 +374,7 @@ impl Instruction {
                     }
                 }
             },
-            Instruction::GroupMultipleByte(MultiInstruction::BNE, AddressingMode::Relative) => {
+            OpCode::BNE => {
                 if state.flags.zero_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
@@ -431,7 +384,7 @@ impl Instruction {
                     }
                 }
             }
-            Instruction::GroupMultipleByte(MultiInstruction::BPL, AddressingMode::Relative) => {
+            OpCode::BPL => {
                 if state.flags.negative_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
@@ -441,7 +394,7 @@ impl Instruction {
                     }
                 }
             },
-            Instruction::GroupMultipleByte(MultiInstruction::BVC, AddressingMode::Relative) => {
+            OpCode::BVC => {
                 if state.flags.overflow_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
@@ -451,7 +404,7 @@ impl Instruction {
                     }
                 }
             },
-            Instruction::GroupMultipleByte(MultiInstruction::BVS, AddressingMode::Relative) => {
+            OpCode::BVS => {
                 if state.flags.overflow_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
@@ -461,7 +414,7 @@ impl Instruction {
                     }
                 }
             },
-            Instruction::GroupMultipleByte(MultiInstruction::CMP, _) => {
+            OpCode::CMP => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
                     Err(_) => return Err(()),
@@ -473,7 +426,7 @@ impl Instruction {
                     .flags
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
-            Instruction::GroupMultipleByte(MultiInstruction::CPX, _) => {
+            OpCode::CPX => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
                     Err(_) => return Err(()),
@@ -485,7 +438,7 @@ impl Instruction {
                     .flags
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
-            Instruction::GroupMultipleByte(MultiInstruction::CPY, _) => {
+            OpCode::CPY => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
                     Err(_) => return Err(()),
@@ -497,20 +450,20 @@ impl Instruction {
                     .flags
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
-            Instruction::GroupMultipleByte(MultiInstruction::LDA, _) => {
+            OpCode::LDA => {
                 state.a = argument as u8;
             },
-            Instruction::GroupMultipleByte(MultiInstruction::LDX, _) => {
+            OpCode::LDX => {
                 state.x = argument as u8;
                 state.flags.set_zero_flag(state.x == 0);
                 state
                     .flags
                     .set_negative_flag((state.x & 0b01000000) == 0b01000000);
             },
-            Instruction::GroupMultipleByte(MultiInstruction::STA, _) => {
+            OpCode::STA => {
                 let _ = state.write_memory(argument.into(), state.a);
             },
-            Instruction::GroupMultipleByte(MultiInstruction::JMP, _) => {
+            OpCode::JMP => {
                 state.pc = argument.into();
             },
 

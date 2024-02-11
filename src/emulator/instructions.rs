@@ -257,7 +257,7 @@ impl Instruction {
                 }
                 state.a = result as u8;
                 state.flags.set_zero_flag(state.a == 0);
-            }
+            },
             OpCode::AND => {
                 let argument = match state.fetch_memory(argument.into()) {
                     Ok(argument) => argument,
@@ -268,7 +268,7 @@ impl Instruction {
                 state
                     .flags
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000)
-            }
+            },
             OpCode::ASL => {
                 let location = match self.mode {
                     Some(AddressingMode::Accumulator) => state.a,
@@ -294,7 +294,7 @@ impl Instruction {
                 state
                     .flags
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
-            }
+            },
             OpCode::BCC => {
                 if state.flags.carry_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
@@ -304,7 +304,7 @@ impl Instruction {
                         state.pc = state.pc.wrapping_sub(argument.abs() as usize);
                     }
                 }
-            }
+            },
             OpCode::BCS => {
                 if state.flags.carry_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
@@ -314,7 +314,7 @@ impl Instruction {
                         state.pc = state.pc.wrapping_sub(argument.abs() as usize);
                     }
                 }
-            }
+            },
             OpCode::BEQ => {
                 if state.flags.zero_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
@@ -356,7 +356,7 @@ impl Instruction {
                         state.pc = state.pc.wrapping_sub(argument.abs() as usize);
                     }
                 }
-            }
+            },
             OpCode::BPL => {
                 if state.flags.negative_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
@@ -516,10 +516,24 @@ impl Instruction {
                 state.pc = argument.into();
             },
             OpCode::JSR => {
+                let low_byte = (state.pc & 0xFF) as u8;
+                let high_byte = (state.pc.overflowing_shr(8).0 & 0xFF) as u8;
 
+                let first_write = state.write_memory(state.sp.into(), high_byte);
+                let second_write = state.write_memory(state.sp.into(), low_byte);
+                match (first_write, second_write) {
+                    (Ok(_), Ok(_)) => (),
+                    _ => return Err(()),
+                };
+                
+                state.pc = argument.into();
             },
             OpCode::LDA => {
                 state.a = argument as u8;
+                state.flags.set_zero_flag(state.a == 0);
+                state
+                    .flags
+                    .set_negative_flag((state.a & 0b10000000) == 0b10000000);
             },
             OpCode::LDX => {
                 state.x = argument as u8;
@@ -528,6 +542,41 @@ impl Instruction {
                     .flags
                     .set_negative_flag((state.x & 0b01000000) == 0b01000000);
             },
+            OpCode::LDY => {
+                state.y = argument as u8;
+                state.flags.set_zero_flag(state.y == 0);
+                state
+                    .flags
+                    .set_negative_flag((state.y & 0b01000000) == 0b01000000);
+            },
+            OpCode::LSR => {
+                let location = match self.mode {
+                    Some(AddressingMode::Accumulator) => state.a,
+                    _ => match state.fetch_memory(argument.into()) {
+                        Ok(a) => a,
+                        Err(_) => return Err(()),
+                    },
+                };
+                let (value, overflow) = location.overflowing_shr(1);
+
+                match self.mode {
+                    Some(AddressingMode::Accumulator) => {
+                        state.a = value;
+                    }
+                    _ => match state.write_memory(argument.into(), value) {
+                        Err(_) => return Err(()),
+                        _ => (),
+                    },
+                };
+
+                state.flags.set_carry_flag(overflow);
+                state.flags.set_zero_flag(value == 0);
+                state
+                    .flags
+                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+            },
+            OpCode::NOP => (),
+            
             OpCode::SEI => {
                 state.flags.set_interrupt_disable_flag(true);
             },

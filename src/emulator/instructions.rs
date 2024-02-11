@@ -40,6 +40,7 @@ pub enum OpCode {
     INC,
     BIT,         // 001
     JMP,         // 010
+    JSR,
     JMPAbsolute, // 011
     STY,         // 100
     LDY,         // 101
@@ -511,7 +512,7 @@ impl Instruction {
                     .flags
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
-            OpCode::JMP => {
+            OpCode::JMP => { // this should be 4c
                 state.pc = argument.into();
             },
             OpCode::JSR => {

@@ -50,7 +50,7 @@ fn main() {
                 if state.running {
                     match state.get_next_instruction() {
                         Some(instruction) => {
-                            // println!("{:?} | Executing", instruction);
+                            println!("{:?} | Executing", instruction);
                             match instruction.execute(&mut state) {
                                 Ok(_) => (),
                                 _ => {
@@ -59,7 +59,7 @@ fn main() {
                             }
                         }
                         None => {
-                            // println!("Unknown instruction");
+                            println!("Unknown instruction");
                         }
                     }
                 }

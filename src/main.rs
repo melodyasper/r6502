@@ -48,20 +48,16 @@ fn main() {
     {
         match state.lock() {
             Ok(mut state) => {
-                if state.running {
-                    match state.get_next_instruction() {
-                        Some(instruction) => {
-                            println!("{:?} | Executing", instruction);
-                            match instruction.execute(&mut state) {
-                                Ok(_) => (),
-                                _ => {
-                                    println!("Failed to execute instruction {:?}", instruction);
-                                }
-                            }
-                        }
-                        None => {
-                            println!("Unknown instruction");
-                        }
+                match state.execute_next_instruction() {
+                    Ok(instruction) => {
+                        println!("{:?} | executed", instruction);
+                    }
+                    Err(Some(ibyte)) => {
+                        println!("Failed to execute the instruction {:#02x}", ibyte);
+                    }
+                    Err(None) => {
+                        println!("Failed to grab next instruction byte");
+                        break;
                     }
                 }
             }

@@ -204,29 +204,33 @@ impl TryFrom<u8> for Instruction {
 }
 
 impl Instruction {
-    pub fn execute<'a>(&self, state: &mut SystemState) -> Result<(), ()> {
+    pub fn execute<'a>(&self, state: &mut SystemState, base_address: &mut usize) -> Result<(), ()> {
         let argument: u16 = match self.mode {
             Some(AddressingMode::Immediate | AddressingMode::Relative) => {
-                match state.consume_byte() {
+                *base_address += 1;
+                match state.read(*base_address) {
                     Some(argument) => argument.into(),
                     _ => return Err(()),
                 }
             }
             Some(AddressingMode::DirectZeroPage) => {
-                match state.consume_byte() {
+                *base_address += 1;
+                match state.read(*base_address) {
                     Some(argument) => argument.into(),
                     _ => return Err(()),
                 }
             }
             Some(AddressingMode::DirectZeroPageX) => {
-                match state.consume_byte() {
+                *base_address += 1;
+                match state.read(*base_address) {
                     Some(byte) => byte.overflowing_add(state.x).0.into(),
                     _ => return Err(()),
                 }
             }
             Some(AddressingMode::DirectAbsolute) => {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
-                match (state.consume_byte(), state.consume_byte()) {
+                *base_address += 2;
+                match (state.read(*base_address - 1), state.read(*base_address)) {
                     (Some(low_byte), Some(high_byte)) => {
                         let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                         address
@@ -240,9 +244,9 @@ impl Instruction {
 
         match self.opcode {
             OpCode::ADC => {
-                let argument = match state.fetch_memory(argument.into()) {
-                    Ok(argument) => argument,
-                    Err(_) => return Err(()),
+                let argument = match state.read(argument.into()) {
+                    Some(argument) => argument,
+                    _ => return Err(()),
                 };
 
                 // TODO: Decimal mode
@@ -259,9 +263,9 @@ impl Instruction {
                 state.flags.set_zero_flag(state.a == 0);
             },
             OpCode::AND => {
-                let argument = match state.fetch_memory(argument.into()) {
-                    Ok(argument) => argument,
-                    Err(_) => return Err(()),
+                let argument = match state.read(argument.into()) {
+                    Some(argument) => argument,
+                    _ => return Err(()),
                 };
                 state.a = argument & state.a;
                 state.flags.set_zero_flag(state.a == 0);
@@ -272,9 +276,9 @@ impl Instruction {
             OpCode::ASL => {
                 let location = match self.mode {
                     Some(AddressingMode::Accumulator) => state.a,
-                    _ => match state.fetch_memory(argument.into()) {
-                        Ok(a) => a,
-                        Err(_) => return Err(()),
+                    _ => match state.read(argument.into()) {
+                        Some(a) => a,
+                        _ => return Err(()),
                     },
                 };
                 let (value, overflow) = location.overflowing_shl(1);
@@ -283,7 +287,7 @@ impl Instruction {
                     Some(AddressingMode::Accumulator) => {
                         state.a = value;
                     }
-                    _ => match state.write_memory(argument.into(), value) {
+                    _ => match state.write(argument.into(), value) {
                         Err(_) => return Err(()),
                         _ => (),
                     },
@@ -299,9 +303,11 @@ impl Instruction {
                 if state.flags.carry_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        state.pc = state.pc.wrapping_add(argument as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
-                        state.pc = state.pc.wrapping_sub(argument.abs() as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
                     }
                 }
             },
@@ -309,9 +315,11 @@ impl Instruction {
                 if state.flags.carry_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        state.pc = state.pc.wrapping_add(argument as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
-                        state.pc = state.pc.wrapping_sub(argument.abs() as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
                     }
                 }
             },
@@ -319,16 +327,18 @@ impl Instruction {
                 if state.flags.zero_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        state.pc = state.pc.wrapping_add(argument as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
-                        state.pc = state.pc.wrapping_sub(argument.abs() as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
                     }
                 }
             },
             OpCode::BIT => {
-                let argument = match state.fetch_memory(argument.into()) {
-                    Ok(argument) => argument,
-                    Err(_) => return Err(()),
+                let argument = match state.read(argument.into()) {
+                    Some(argument) => argument,
+                    _ => return Err(()),
                 };
                 let result = argument & state.a;
                 state.flags.set_zero_flag(result == 0);
@@ -341,9 +351,11 @@ impl Instruction {
                 if state.flags.negative_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        state.pc = state.pc.wrapping_add(argument as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
-                        state.pc = state.pc.wrapping_sub(argument.abs() as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
                     }
                 }
             },
@@ -351,9 +363,11 @@ impl Instruction {
                 if state.flags.zero_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        state.pc = state.pc.wrapping_add(argument as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
-                        state.pc = state.pc.wrapping_sub(argument.abs() as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
                     }
                 }
             },
@@ -361,9 +375,11 @@ impl Instruction {
                 if state.flags.negative_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        state.pc = state.pc.wrapping_add(argument as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
-                        state.pc = state.pc.wrapping_sub(argument.abs() as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
                     }
                 }
             },
@@ -371,9 +387,11 @@ impl Instruction {
                 if state.flags.overflow_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        state.pc = state.pc.wrapping_add(argument as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
-                        state.pc = state.pc.wrapping_sub(argument.abs() as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
                     }
                 }
             },
@@ -381,9 +399,11 @@ impl Instruction {
                 if state.flags.overflow_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        state.pc = state.pc.wrapping_add(argument as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
-                        state.pc = state.pc.wrapping_sub(argument.abs() as usize);
+                        // We don't mutate PC, we mutate base address which mutates PC
+                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
                     }
                 }
             },
@@ -400,11 +420,11 @@ impl Instruction {
                 state.flags.set_overflow_flag(false);
             },
             OpCode::CMP => {
-                let argument = match state.fetch_memory(argument.into()) {
-                    Ok(argument) => argument,
-                    Err(_) => return Err(()),
+                let argument = match state.read(argument.into()) {
+                    Some(argument) => argument,
+                    _ => return Err(()),
                 };
-                let result = state.a - argument;
+                let result = state.a.overflowing_sub(argument).0;
                 state.flags.set_zero_flag(result == 0);
                 state.flags.set_carry_flag(argument <= state.a);
                 state
@@ -412,11 +432,11 @@ impl Instruction {
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::CPX => {
-                let argument = match state.fetch_memory(argument.into()) {
-                    Ok(argument) => argument,
-                    Err(_) => return Err(()),
+                let argument = match state.read(argument.into()) {
+                    Some(argument) => argument,
+                    _ => return Err(()),
                 };
-                let result = state.x - argument;
+                let result = state.x.overflowing_sub(argument).0;
                 state.flags.set_zero_flag(result == 0);
                 state.flags.set_carry_flag(state.x >= argument);
                 state
@@ -424,11 +444,11 @@ impl Instruction {
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::CPY => {
-                let argument = match state.fetch_memory(argument.into()) {
-                    Ok(argument) => argument,
-                    Err(_) => return Err(()),
+                let argument = match state.read(argument.into()) {
+                    Some(argument) => argument,
+                    _ => return Err(()),
                 };
-                let result = state.y - argument;
+                let result = state.y.overflowing_sub(argument).0;
                 state.flags.set_zero_flag(result == 0);
                 state.flags.set_carry_flag(state.y >= argument);
                 state
@@ -436,14 +456,14 @@ impl Instruction {
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::DEC => {
-                let m = match state.fetch_memory(argument.into()) {
-                    Ok(m) => m,
-                    Err(_) => return Err(()),
+                let m = match state.read(argument.into()) {
+                    Some(m) => m,
+                    _ => return Err(()),
                 };
 
                 let (value, _) = m.overflowing_sub(1);
 
-                match state.write_memory(argument.into(), value) {
+                match state.write(argument.into(), value) {
                     Err(_) => return Err(()),
                     _ => (),
                 };
@@ -468,9 +488,9 @@ impl Instruction {
                     .set_negative_flag((state.y & 0b10000000) == 0b10000000);
             },
             OpCode::EOR => {
-                let m = match state.fetch_memory(argument.into()) {
-                    Ok(m) => m,
-                    Err(_) => return Err(()),
+                let m = match state.read(argument.into()) {
+                    Some(m) => m,
+                    _ => return Err(()),
                 };
                 state.a = state.a ^ m;
                 state.flags.set_zero_flag(state.a == 0);
@@ -479,14 +499,14 @@ impl Instruction {
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000);
             },
             OpCode::INC => {
-                let m = match state.fetch_memory(argument.into()) {
-                    Ok(m) => m,
-                    Err(_) => return Err(()),
+                let m = match state.read(argument.into()) {
+                    Some(m) => m,
+                    _ => return Err(()),
                 };
 
                 let (value, _) = m.overflowing_add(1);
 
-                match state.write_memory(argument.into(), value) {
+                match state.write(argument.into(), value) {
                     Err(_) => return Err(()),
                     _ => (),
                 };
@@ -513,20 +533,21 @@ impl Instruction {
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::JMP => { // this should be 4c
-                state.pc = argument.into();
+                // We don't mutate PC, we mutate base address which mutates PC
+                *base_address = argument.into();
             },
             OpCode::JSR => {
-                let low_byte = (state.pc & 0xFF) as u8;
-                let high_byte = (state.pc.overflowing_shr(8).0 & 0xFF) as u8;
+                let low_byte = (*base_address & 0xFF) as u8;
+                let high_byte = ((*base_address).overflowing_shr(8).0 & 0xFF) as u8;
 
-                let first_write = state.write_memory(state.sp.into(), high_byte);
-                let second_write = state.write_memory(state.sp.into(), low_byte);
+                let first_write = state.write(state.sp.into(), high_byte);
+                let second_write = state.write(state.sp.into(), low_byte);
                 match (first_write, second_write) {
                     (Ok(_), Ok(_)) => (),
                     _ => return Err(()),
                 };
-                
-                state.pc = argument.into();
+                // We don't mutate PC, we mutate base address which mutates PC
+                *base_address = argument.into();
             },
             OpCode::LDA => {
                 state.a = argument as u8;
@@ -552,9 +573,9 @@ impl Instruction {
             OpCode::LSR => {
                 let location = match self.mode {
                     Some(AddressingMode::Accumulator) => state.a,
-                    _ => match state.fetch_memory(argument.into()) {
-                        Ok(a) => a,
-                        Err(_) => return Err(()),
+                    _ => match state.read(argument.into()) {
+                        Some(a) => a,
+                        _ => return Err(()),
                     },
                 };
                 let (value, overflow) = location.overflowing_shr(1);
@@ -563,7 +584,7 @@ impl Instruction {
                     Some(AddressingMode::Accumulator) => {
                         state.a = value;
                     }
-                    _ => match state.write_memory(argument.into(), value) {
+                    _ => match state.write(argument.into(), value) {
                         Err(_) => return Err(()),
                         _ => (),
                     },
@@ -581,7 +602,7 @@ impl Instruction {
                 state.flags.set_interrupt_disable_flag(true);
             },
             OpCode::STA => {
-                let _ = state.write_memory(argument.into(), state.a);
+                let _ = state.write(argument.into(), state.a);
             },
             OpCode::TXS => {
                 state.s = state.x;

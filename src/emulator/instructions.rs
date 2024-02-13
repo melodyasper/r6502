@@ -307,7 +307,12 @@ impl Instruction {
                         *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
                         // We don't mutate PC, we mutate base address which mutates PC
-                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
+                        let temp = if argument == i8::MIN {
+                            (i8::MAX as usize) + 1
+                        } else {
+                            argument.abs() as usize
+                        };
+                        *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
@@ -319,7 +324,12 @@ impl Instruction {
                         *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
                         // We don't mutate PC, we mutate base address which mutates PC
-                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
+                        let temp = if argument == i8::MIN {
+                            (i8::MAX as usize) + 1
+                        } else {
+                            argument.abs() as usize
+                        };
+                        *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
@@ -331,7 +341,12 @@ impl Instruction {
                         *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
                         // We don't mutate PC, we mutate base address which mutates PC
-                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
+                        let temp = if argument == i8::MIN {
+                            (i8::MAX as usize) + 1
+                        } else {
+                            argument.abs() as usize
+                        };
+                        *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
@@ -355,7 +370,12 @@ impl Instruction {
                         *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
                         // We don't mutate PC, we mutate base address which mutates PC
-                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
+                        let temp = if argument == i8::MIN {
+                            (i8::MAX as usize) + 1
+                        } else {
+                            argument.abs() as usize
+                        };
+                        *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
@@ -367,7 +387,12 @@ impl Instruction {
                         *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
                         // We don't mutate PC, we mutate base address which mutates PC
-                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
+                        let temp = if argument == i8::MIN {
+                            (i8::MAX as usize) + 1
+                        } else {
+                            argument.abs() as usize
+                        };
+                        *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
@@ -379,7 +404,12 @@ impl Instruction {
                         *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
                         // We don't mutate PC, we mutate base address which mutates PC
-                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
+                        let temp = if argument == i8::MIN {
+                            (i8::MAX as usize) + 1
+                        } else {
+                            argument.abs() as usize
+                        };
+                        *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
@@ -391,7 +421,12 @@ impl Instruction {
                         *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
                         // We don't mutate PC, we mutate base address which mutates PC
-                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
+                        let temp = if argument == i8::MIN {
+                            (i8::MAX as usize) + 1
+                        } else {
+                            argument.abs() as usize
+                        };
+                        *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
@@ -403,7 +438,12 @@ impl Instruction {
                         *base_address = (*base_address).overflowing_add(argument as usize).0;
                     } else {
                         // We don't mutate PC, we mutate base address which mutates PC
-                        *base_address = (*base_address).overflowing_sub(argument.abs() as usize).0;
+                        let temp = if argument == i8::MIN {
+                            (i8::MAX as usize) + 1
+                        } else {
+                            argument.abs() as usize
+                        };
+                        *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },

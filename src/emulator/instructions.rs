@@ -346,6 +346,9 @@ impl Instruction {
                     }
                     _ => return Err(()),
                 }
+            },
+            Some(AddressingMode::Accumulator) => {
+                state.a.into()
             }
             None => 0,
             _ => return Err(()),

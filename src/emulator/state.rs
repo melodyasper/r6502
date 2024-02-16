@@ -66,7 +66,7 @@ pub struct SystemState {
 impl Default for SystemState {
     fn default() -> Self {
         let mut memory: Vec<u8> = Vec::new();
-        memory.resize(128_000, 0);
+        memory.resize(128_000, 0x77);
         Self {
             running: Default::default(),
             pc: Default::default(),

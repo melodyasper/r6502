@@ -78,6 +78,8 @@ pub enum OpCode {
     DEX,
     NOP,
     BRK,
+    RTI,
+    RTS
     BadInstruction(u8),
     UnknownInstruction(u8),
 }
@@ -861,6 +863,26 @@ impl Instruction {
                 state.p.set_negative_flag(state.p.carry_flag()) ;
                 state.p.set_carry_flag((input & 0b00000001) == 0b00000001);
                 state.p.set_zero_flag(value == 0);
+            }
+            OpCode::RTI => {
+
+                state.s = state.s.wrapping_add(1);
+                let r1 = state.read(0x100 + state.s as usize).ok_or(())?;
+                state.s = state.s.wrapping_add(1);
+                let r2 = state.read(0x100 + state.s as usize).ok_or(())?;
+                state.s = state.s.wrapping_add(1);
+                let r3 = state.read(0x100 + state.s as usize).ok_or(())?;
+                
+                state.p.value = r1;
+                *base_address = (r2 as usize).overflowing_add((r3 as usize).overflowing_shl(8).0).0;
+            }
+            OpCode::RTS => {
+                state.s = state.s.wrapping_add(1);
+                let r1 = state.read(0x100 + state.s as usize).ok_or(())?;
+                state.s = state.s.wrapping_add(1);
+                let r2 = state.read(0x100 + state.s as usize).ok_or(())?;
+
+                *base_address = (r1 as usize).overflowing_add((r2 as usize).overflowing_shl(8).0).0;
             }
             OpCode::SEI => {
                 state.p.set_interrupt_disable_flag(true);

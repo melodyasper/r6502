@@ -228,7 +228,7 @@ mod tests {
         state_expected.p = StatusFlags { value: 0 };
         state.p = StatusFlags { value: 0 };
         let result = state_expected == state;
-        if print_me == true {
+        if result == false && print_me == true {
             print!("R[E,F] | ");
             if state.pc != state_expected.pc {
                 print!("pc[{:x}, {:x}] ", state_expected.pc, state.pc);
@@ -292,10 +292,7 @@ mod tests {
                     state.running = false;
                 }
                 match state.execute_next_instruction() {
-                    Ok(instruction) => 
-                    {
-                        // println!("{:?} | Executed", instruction);
-                    },
+                    Ok(_) => (),
                     Err(Some(instruction)) => {
                         match instruction.opcode {
                             OpCode::UnknownInstruction(ibyte) => {
@@ -331,7 +328,7 @@ mod tests {
         }
         
         if tests_passed != tests_total {
-            assert!(tests_passed == tests_total, "tests passed: {}/{}", tests_passed, tests_total);
+            assert!(tests_passed == tests_total, "{:#02x} tests passed: {}/{}", instruction, tests_passed, tests_total);
         };
     }
 

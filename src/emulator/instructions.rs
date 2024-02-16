@@ -347,6 +347,39 @@ impl Instruction {
                     _ => return Err(()),
                 }
             },
+            Some(AddressingMode::DirectAbsoluteX) => {
+                *base_address += 2;
+                match (state.read(*base_address - 1), state.read(*base_address)) {
+                    (Some(low_byte), Some(high_byte)) => {
+                        let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                        let address = address.overflowing_add(state.x.into()).0;
+                        address
+                    }
+                    _ => return Err(()),
+                }
+            }
+            Some(AddressingMode::DirectAbsoluteY) => {
+                *base_address += 2;
+                match (state.read(*base_address - 1), state.read(*base_address)) {
+                    (Some(low_byte), Some(high_byte)) => {
+                        let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                        let address = address.overflowing_add(state.y.into()).0;
+                        address
+                    }
+                    _ => return Err(()),
+                }
+            },
+            Some(AddressingMode::IndirectZeroPageX) => {
+                *base_address += 1;
+                let zero_page_address = match state.read(*base_address) {
+                    Some(byte) => byte.overflowing_add(state.x).0.into(),
+                    _ => return Err(()),
+                };
+                let low_byte = state.read(zero_page_address).ok_or(())?;
+                let high_byte = state.read(zero_page_address + 1).ok_or(())?;
+                
+                ((high_byte as u16) << 8) + low_byte as u16
+            }
             Some(AddressingMode::Accumulator) => {
                 state.a.into()
             }

@@ -1,6 +1,6 @@
 use crate::emulator::state::SystemState;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum AddressingMode {
     IndirectZeroPageX,
     DirectZeroPage,
@@ -14,13 +14,13 @@ pub enum AddressingMode {
     Relative,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Instruction {
     pub opcode: OpCode,
     pub mode: Option<AddressingMode>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum OpCode {
     ORA,
     AND,

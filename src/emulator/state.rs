@@ -277,7 +277,8 @@ mod tests {
         let v: Value = serde_json::from_str(&contents).unwrap();
         let mut tests_total = 0;
         let mut tests_passed = 0;
-        let mut unknown_instructions: Vec<u8> = Vec::new();
+        let mut unknown_instructions: Vec<_> = Vec::new();
+        let mut unfinished_instructions: Vec<_> = Vec::new();
         for value in v.as_array().unwrap().into_iter() {
             tests_total += 1;
             let mut state = json_to_state(&value["initial"]);
@@ -303,7 +304,12 @@ mod tests {
                                     unknown_instructions.push(ibyte);
                                 }
                             }
-                            _ => ()
+                            OpCode::BadInstruction(_) => (),
+                            _ => {
+                                if unfinished_instructions.contains(&instruction) == false {
+                                    unfinished_instructions.push(instruction);
+                                }
+                            }
                         }
                         break;
 
@@ -319,7 +325,10 @@ mod tests {
             }
         }
         for i in unknown_instructions.iter() {
-            println!("Failed to execute the instruction {:#02x}", i);
+            println!("Unknown Instruction {:#02x}", i);
+        }
+        for i in unfinished_instructions.iter() {
+            println!("The following instruction isnt implemented: {:?}", i);
         }
         
         if tests_passed != tests_total {

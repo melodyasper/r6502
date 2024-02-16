@@ -288,7 +288,7 @@ mod tests {
             loop {
                 let time_now = Instant::now();
                 let difference = time_now - time_start;
-                if difference.as_secs_f32() > 1.0 {
+                if difference.as_secs_f32() > 0.1 {
                     state.running = false;
                 }
                 match state.execute_next_instruction() {

@@ -16,8 +16,8 @@ pub enum AddressingMode {
 
 #[derive(Debug)]
 pub struct Instruction {
-    opcode: OpCode,
-    mode: Option<AddressingMode>,
+    pub opcode: OpCode,
+    pub mode: Option<AddressingMode>,
 }
 
 #[derive(Debug)]
@@ -77,48 +77,126 @@ pub enum OpCode {
     TSX,
     DEX,
     NOP,
+    BadInstruction(u8),
+    UnknownInstruction(u8),
 }
 
-
-impl TryFrom<u8> for Instruction {
-    type Error = ();
-    fn try_from(value: u8) -> Result<Instruction, Self::Error> {
+impl From<u8> for Instruction {
+    fn from(value: u8) -> Self {
         let group_bits = value & 0b11;
         let instruction_bits = (0b11100000 & value) >> 5;
         let mode_bits = (0b00011100 & value) >> 2;
 
         // Single byte and special multibyte carveout as an exception
         match value {
-            0x08 => return Ok(Instruction { opcode: OpCode::PHP, mode: None }),
-            0x28 => return Ok(Instruction { opcode: OpCode::PLP, mode: None }),
-            0x48 => return Ok(Instruction { opcode: OpCode::PHA, mode: None }),
-            0x68 => return Ok(Instruction { opcode: OpCode::PLA, mode: None }),
-            0x88 => return Ok(Instruction { opcode: OpCode::DEY, mode: None }),
-            0xA8 => return Ok(Instruction { opcode: OpCode::TAY, mode: None }),
-            0xC8 => return Ok(Instruction { opcode: OpCode::INY, mode: None }),
-            0xE8 => return Ok(Instruction { opcode: OpCode::INX, mode: None }),
-            0x18 => return Ok(Instruction { opcode: OpCode::CLC, mode: None }),
-            0x38 => return Ok(Instruction { opcode: OpCode::SEC, mode: None }),
-            0x58 => return Ok(Instruction { opcode: OpCode::CLI, mode: None }),
-            0x78 => return Ok(Instruction { opcode: OpCode::SEI, mode: None }),
-            0x98 => return Ok(Instruction { opcode: OpCode::TYA, mode: None }),
-            0xB8 => return Ok(Instruction { opcode: OpCode::CLV, mode: None }),
-            0xD8 => return Ok(Instruction { opcode: OpCode::CLD, mode: None }),
-            0xF8 => return Ok(Instruction { opcode: OpCode::SED, mode: None }),
-            0x8A => return Ok(Instruction { opcode: OpCode::TXA, mode: None }),
-            0x9A => return Ok(Instruction { opcode: OpCode::TXS, mode: None }),
-            0xAA => return Ok(Instruction { opcode: OpCode::TAX, mode: None }),
-            0xBA => return Ok(Instruction { opcode: OpCode::TSX, mode: None }),
-            0xCA => return Ok(Instruction { opcode: OpCode::DEX, mode: None }),
-            0xEA => return Ok(Instruction { opcode: OpCode::NOP, mode: None }),
-            0x10 => return Ok(Instruction {opcode: OpCode::BPL, mode: Some(AddressingMode::Relative) }),
-            0x30 => return Ok(Instruction {opcode: OpCode::BMI, mode: Some(AddressingMode::Relative) }),
-            0x50 => return Ok(Instruction {opcode: OpCode::BVC, mode: Some(AddressingMode::Relative) }),
-            0x70 => return Ok(Instruction {opcode: OpCode::BVS, mode: Some(AddressingMode::Relative) }),
-            0x90 => return Ok(Instruction {opcode: OpCode::BCC, mode: Some(AddressingMode::Relative) }),
-            0xB0 => return Ok(Instruction {opcode: OpCode::BCS, mode: Some(AddressingMode::Relative) }),
-            0xD0 => return Ok(Instruction {opcode: OpCode::BNE, mode: Some(AddressingMode::Relative) }),
-            0xF0 => return Ok(Instruction {opcode: OpCode::BEQ, mode: Some(AddressingMode::Relative) }),
+            0x08 => return Instruction { opcode: OpCode::PHP, mode: None },
+            0x28 => return Instruction { opcode: OpCode::PLP, mode: None },
+            0x48 => return Instruction { opcode: OpCode::PHA, mode: None },
+            0x68 => return Instruction { opcode: OpCode::PLA, mode: None },
+            0x88 => return Instruction { opcode: OpCode::DEY, mode: None },
+            0xA8 => return Instruction { opcode: OpCode::TAY, mode: None },
+            0xC8 => return Instruction { opcode: OpCode::INY, mode: None },
+            0xE8 => return Instruction { opcode: OpCode::INX, mode: None },
+            0x18 => return Instruction { opcode: OpCode::CLC, mode: None },
+            0x38 => return Instruction { opcode: OpCode::SEC, mode: None },
+            0x58 => return Instruction { opcode: OpCode::CLI, mode: None },
+            0x78 => return Instruction { opcode: OpCode::SEI, mode: None },
+            0x98 => return Instruction { opcode: OpCode::TYA, mode: None },
+            0xB8 => return Instruction { opcode: OpCode::CLV, mode: None },
+            0xD8 => return Instruction { opcode: OpCode::CLD, mode: None },
+            0xF8 => return Instruction { opcode: OpCode::SED, mode: None },
+            0x8A => return Instruction { opcode: OpCode::TXA, mode: None },
+            0x9A => return Instruction { opcode: OpCode::TXS, mode: None },
+            0xAA => return Instruction { opcode: OpCode::TAX, mode: None },
+            0xBA => return Instruction { opcode: OpCode::TSX, mode: None },
+            0xCA => return Instruction { opcode: OpCode::DEX, mode: None },
+            0xEA => return Instruction { opcode: OpCode::NOP, mode: None },
+            0x10 => return Instruction {opcode: OpCode::BPL, mode: Some(AddressingMode::Relative) },
+            0x30 => return Instruction {opcode: OpCode::BMI, mode: Some(AddressingMode::Relative) },
+            0x50 => return Instruction {opcode: OpCode::BVC, mode: Some(AddressingMode::Relative) },
+            0x70 => return Instruction {opcode: OpCode::BVS, mode: Some(AddressingMode::Relative) },
+            0x90 => return Instruction {opcode: OpCode::BCC, mode: Some(AddressingMode::Relative) },
+            0xB0 => return Instruction {opcode: OpCode::BCS, mode: Some(AddressingMode::Relative) },
+            0xD0 => return Instruction {opcode: OpCode::BNE, mode: Some(AddressingMode::Relative) },
+            0xF0 => return Instruction {opcode: OpCode::BEQ, mode: Some(AddressingMode::Relative) },
+            0x02 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x22 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x42 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x62 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x82 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xc2 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xe2 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x03 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x13 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x23 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x33 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x43 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x53 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x63 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x73 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x83 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x93 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xa3 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xb3 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xc3 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xd3 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xe3 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xf3 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x44 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x54 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xd4 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xf4 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x07 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x17 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x27 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x37 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x47 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x57 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x67 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x77 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x87 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x97 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xa7 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xb7 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xc7 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xd7 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xe7 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xf7 => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x0b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x1b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x2b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x3b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x4b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x5b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x6b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x7b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x8b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x9b => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xab => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xbb => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xcb => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xdb => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xeb => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xfb => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x5c => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xdc => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xfc => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x0f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x1f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x2f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x3f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x4f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x5f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x6f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x7f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x8f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0x9f => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xaf => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xbf => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xcf => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xdf => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xef => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
+            0xff => return Instruction {opcode: OpCode::BadInstruction(value), mode: None},
             _ => (),
         };
 
@@ -133,7 +211,7 @@ impl TryFrom<u8> for Instruction {
                     0b101 => OpCode::LDA,
                     0b110 => OpCode::CMP,
                     0b111 => OpCode::SBC,
-                    _ => return Err(()),
+                    _ => return Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
                 };
 
                 let mode = match mode_bits {
@@ -145,10 +223,10 @@ impl TryFrom<u8> for Instruction {
                     0b101 => AddressingMode::DirectZeroPageX,
                     0b110 => AddressingMode::DirectAbsoluteY,
                     0b111 => AddressingMode::DirectAbsoluteX,
-                    _ => return Err(()),
+                    _ => return Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
                 };
 
-                Ok(Instruction{ opcode: instruction, mode: Some(mode) })
+                Instruction{ opcode: instruction, mode: Some(mode) }
             }
             0b10 => {
                 let instruction = match instruction_bits {
@@ -160,7 +238,7 @@ impl TryFrom<u8> for Instruction {
                     0b101 => OpCode::LDX,
                     0b110 => OpCode::DEC,
                     0b111 => OpCode::INC,
-                    _ => return Err(()),
+                    _ => return Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
                 };
 
                 let mode = match mode_bits {
@@ -170,10 +248,10 @@ impl TryFrom<u8> for Instruction {
                     0b011 => AddressingMode::DirectAbsolute,
                     0b101 => AddressingMode::DirectZeroPageX,
                     0b111 => AddressingMode::DirectAbsoluteX,
-                    _ => return Err(()),
+                    _ => return Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
                 };
 
-                Ok(Instruction{ opcode: instruction, mode: Some(mode) })
+                Instruction{ opcode: instruction, mode: Some(mode) }
             }
             0b00 => {
                 let instruction = match instruction_bits {
@@ -184,7 +262,7 @@ impl TryFrom<u8> for Instruction {
                     0b101 => OpCode::LDY,
                     0b110 => OpCode::CPY,
                     0b111 => OpCode::CPX,
-                    _ => return Err(()),
+                    _ => return Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
                 };
 
                 let mode = match mode_bits {
@@ -193,12 +271,12 @@ impl TryFrom<u8> for Instruction {
                     0b011 => AddressingMode::DirectAbsolute,
                     0b101 => AddressingMode::DirectZeroPageX,
                     0b111 => AddressingMode::DirectAbsoluteX,
-                    _ => return Err(()),
+                    _ => return Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
                 };
 
-                Ok(Instruction{ opcode: instruction, mode: Some(mode) })
+                Instruction{ opcode: instruction, mode: Some(mode) }
             }
-            _ => Err(()),
+            _ => return Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
         }
     }
 }

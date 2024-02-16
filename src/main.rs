@@ -1,4 +1,6 @@
 mod emulator;
+use emulator::instructions::{self, Instruction};
+
 use crate::emulator::state::{SystemState, StatusFlags};
 use crate::emulator::display::Renderer;
 use std::thread;
@@ -41,6 +43,7 @@ fn main() {
         let renderer = Renderer {state: state_clone};
         let _ = renderer.start();
     });
+
     
     
     // state.memory.resize(256, 0xAA);
@@ -50,13 +53,15 @@ fn main() {
             Ok(mut state) => {
                 match state.execute_next_instruction() {
                     Ok(instruction) => {
+                        
                         println!("{:?} | executed", instruction);
                     }
-                    Err(Some(ibyte)) => {
-                        println!("Failed to execute the instruction {:#02x}", ibyte);
+                    Err(Some(instruction)) => {
+                        println!("Failed to execute the instruction {:?}", instruction);
+                        break;
                     }
                     Err(None) => {
-                        println!("Failed to grab next instruction byte");
+                        println!("Failed to read");
                         break;
                     }
                 }

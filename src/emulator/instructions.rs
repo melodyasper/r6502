@@ -79,7 +79,7 @@ pub enum OpCode {
     NOP,
     BRK,
     RTI,
-    RTS
+    RTS,
     BadInstruction(u8),
     UnknownInstruction(u8),
 }

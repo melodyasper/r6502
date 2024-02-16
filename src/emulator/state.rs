@@ -175,7 +175,7 @@ mod tests {
         state.x = state_map["x"].as_u64().unwrap() as u8;
         state.y = state_map["y"].as_u64().unwrap() as u8;
         state.s = state_map["s"].as_u64().unwrap() as u8;
-        state.p = state_map["p"].as_u64().unwrap() as u8;
+        state.p.value = state_map["p"].as_u64().unwrap() as u8;
 
         for memory in state_map["ram"].as_array().unwrap().iter() {
             let memory = memory.as_array().unwrap();

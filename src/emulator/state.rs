@@ -12,8 +12,9 @@ use super::instructions::{self, OpCode};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct StatusFlags {
-    value: u8,
+    pub value: u8,
 }
+
 macro_rules! create_status_flag {
     ($name:ident, $value:expr) => {
         paste! {
@@ -56,10 +57,10 @@ pub struct SystemState {
     pub a: u8,
     pub x: u8,
     pub y: u8,
+    // Stack Pointer
+    // The processor supports a 256 byte stack located between $0100 and $01FF
     pub s: u8,
-    pub p: u8,
-    pub sp: u16,
-    pub flags: StatusFlags,
+    pub p: StatusFlags,
 }
 
 impl Default for SystemState {
@@ -74,9 +75,7 @@ impl Default for SystemState {
             x: 0,
             y: 0,
             s: 0,
-            p: 0,
-            sp: 0,
-            flags: StatusFlags { value: 0 },
+            p: StatusFlags { value: 0 },
         }
     }
 }
@@ -226,8 +225,8 @@ mod tests {
         state: &mut SystemState,
         print_me: bool,
     ) -> bool {
-        state_expected.flags = StatusFlags { value: 0 };
-        state.flags = StatusFlags { value: 0 };
+        state_expected.p = StatusFlags { value: 0 };
+        state.p = StatusFlags { value: 0 };
         let result = state_expected == state;
         if print_me == true {
             print!("R[E,F] | ");
@@ -246,9 +245,9 @@ mod tests {
             if state.s != state_expected.s {
                 print!("s[{:x}, {:x}] ", state_expected.s, state.s);
             }
-            if state.p != state_expected.p {
-                print!("p[{:x}, {:x}] ", state_expected.p, state.p);
-            }
+            // if state.p != state_expected.p {
+            //     print!("p[{:x}, {:x}] ", state_expected.p, state.p);
+            // }
 
             let mvec: Vec<(usize, (u8, u8))> = state_expected
                 .m

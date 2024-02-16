@@ -31,9 +31,7 @@ fn main() {
         x: 0,
         y: 0,
         s: 0,
-        p: 0,
-        sp: 0,
-        flags: StatusFlags::new(0),
+        p: StatusFlags::new(0),
     }));
 
 

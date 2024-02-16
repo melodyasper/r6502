@@ -357,17 +357,17 @@ impl Instruction {
                 };
 
                 // TODO: Decimal mode
-                let carry_flag: u16 = match state.flags.carry_flag() {
+                let carry_flag: u16 = match state.p.carry_flag() {
                     true => 1,
                     false => 0,
                 };
                 let result: u16 = state.a as u16 + argument as u16 + carry_flag;
                 if result > u8::MAX.into() {
-                    state.flags.set_carry_flag(true);
-                    state.flags.set_overflow_flag(true);
+                    state.p.set_carry_flag(true);
+                    state.p.set_overflow_flag(true);
                 }
                 state.a = result as u8;
-                state.flags.set_zero_flag(state.a == 0);
+                state.p.set_zero_flag(state.a == 0);
             },
             OpCode::AND => {
                 let argument = match state.read(argument.into()) {
@@ -375,9 +375,9 @@ impl Instruction {
                     _ => return Err(()),
                 };
                 state.a = argument & state.a;
-                state.flags.set_zero_flag(state.a == 0);
+                state.p.set_zero_flag(state.a == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000)
             },
             OpCode::ASL => {
@@ -400,14 +400,14 @@ impl Instruction {
                     },
                 };
 
-                state.flags.set_carry_flag(overflow);
-                state.flags.set_zero_flag(value == 0);
+                state.p.set_carry_flag(overflow);
+                state.p.set_zero_flag(value == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::BCC => {
-                if state.flags.carry_flag() == false {
+                if state.p.carry_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -424,7 +424,7 @@ impl Instruction {
                 }
             },
             OpCode::BCS => {
-                if state.flags.carry_flag() {
+                if state.p.carry_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -441,7 +441,7 @@ impl Instruction {
                 }
             },
             OpCode::BEQ => {
-                if state.flags.zero_flag() {
+                if state.p.zero_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -463,14 +463,14 @@ impl Instruction {
                     _ => return Err(()),
                 };
                 let result = argument & state.a;
-                state.flags.set_zero_flag(result == 0);
-                state.flags.set_overflow_flag(argument & 0b01000000  == 0b01000000);
+                state.p.set_zero_flag(result == 0);
+                state.p.set_overflow_flag(argument & 0b01000000  == 0b01000000);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::BMI => {
-                if state.flags.negative_flag() {
+                if state.p.negative_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -487,7 +487,7 @@ impl Instruction {
                 }
             },
             OpCode::BNE => {
-                if state.flags.zero_flag() == false {
+                if state.p.zero_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -504,7 +504,7 @@ impl Instruction {
                 }
             },
             OpCode::BPL => {
-                if state.flags.negative_flag() == false {
+                if state.p.negative_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -520,8 +520,26 @@ impl Instruction {
                     }
                 }
             },
+            OpCode::BRK => {
+                let low_byte = (*base_address & 0xFF) as u8;
+                let high_byte = ((*base_address).overflowing_shr(8).0 & 0xFF) as u8;
+
+                let first_write = state.write(state.s.into(), high_byte);
+                state.s = state.s.wrapping_sub(1);
+                let second_write = state.write(state.s.into(), low_byte);
+                state.s = state.s.wrapping_sub(1);
+                let third_write = state.write(state.s.into(), state.p.value);
+                state.s = state.s.wrapping_sub(1);
+                match (first_write, second_write, third_write) {
+                    (Ok(_), Ok(_), Ok(_)) => (),
+                    _ => return Err(()),
+                };
+                // We don't mutate PC, we mutate base address which mutates PC
+                *base_address = argument.into();
+
+            }
             OpCode::BVC => {
-                if state.flags.overflow_flag() == false {
+                if state.p.overflow_flag() == false {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -538,7 +556,7 @@ impl Instruction {
                 }
             },
             OpCode::BVS => {
-                if state.flags.overflow_flag() {
+                if state.p.overflow_flag() {
                     let argument = argument as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -555,16 +573,16 @@ impl Instruction {
                 }
             },
             OpCode::CLC => {
-                state.flags.set_carry_flag(false);
+                state.p.set_carry_flag(false);
             },
             OpCode::CLD => {
-                state.flags.set_decimal_flag(false);
+                state.p.set_decimal_flag(false);
             },
             OpCode::CLI => {
-                state.flags.set_interrupt_disable_flag(false);
+                state.p.set_interrupt_disable_flag(false);
             },
             OpCode::CLV => {
-                state.flags.set_overflow_flag(false);
+                state.p.set_overflow_flag(false);
             },
             OpCode::CMP => {
                 let argument = match state.read(argument.into()) {
@@ -572,10 +590,10 @@ impl Instruction {
                     _ => return Err(()),
                 };
                 let result = state.a.overflowing_sub(argument).0;
-                state.flags.set_zero_flag(result == 0);
-                state.flags.set_carry_flag(argument <= state.a);
+                state.p.set_zero_flag(result == 0);
+                state.p.set_carry_flag(argument <= state.a);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::CPX => {
@@ -584,10 +602,10 @@ impl Instruction {
                     _ => return Err(()),
                 };
                 let result = state.x.overflowing_sub(argument).0;
-                state.flags.set_zero_flag(result == 0);
-                state.flags.set_carry_flag(state.x >= argument);
+                state.p.set_zero_flag(result == 0);
+                state.p.set_carry_flag(state.x >= argument);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::CPY => {
@@ -596,10 +614,10 @@ impl Instruction {
                     _ => return Err(()),
                 };
                 let result = state.y.overflowing_sub(argument).0;
-                state.flags.set_zero_flag(result == 0);
-                state.flags.set_carry_flag(state.y >= argument);
+                state.p.set_zero_flag(result == 0);
+                state.p.set_carry_flag(state.y >= argument);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::DEC => {
@@ -615,23 +633,23 @@ impl Instruction {
                     _ => (),
                 };
 
-                state.flags.set_zero_flag(value == 0);
+                state.p.set_zero_flag(value == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::DEX => {
                 state.y = state.x.overflowing_sub(1).0;
-                state.flags.set_zero_flag(state.x == 0);
+                state.p.set_zero_flag(state.x == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((state.x & 0b10000000) == 0b10000000);
             },
             OpCode::DEY => {
                 state.y = state.x.overflowing_sub(1).0;
-                state.flags.set_zero_flag(state.y == 0);
+                state.p.set_zero_flag(state.y == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((state.y & 0b10000000) == 0b10000000);
             },
             OpCode::EOR => {
@@ -640,9 +658,9 @@ impl Instruction {
                     _ => return Err(()),
                 };
                 state.a = state.a ^ m;
-                state.flags.set_zero_flag(state.a == 0);
+                state.p.set_zero_flag(state.a == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000);
             },
             OpCode::INC => {
@@ -658,25 +676,25 @@ impl Instruction {
                     _ => (),
                 };
 
-                state.flags.set_zero_flag(value == 0);
+                state.p.set_zero_flag(value == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::INX => {
                 let (value, _) = state.x.overflowing_add(1);
 
-                state.flags.set_zero_flag(value == 0);
+                state.p.set_zero_flag(value == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::INY => {
                 let (value, _) = state.y.overflowing_add(1);
 
-                state.flags.set_zero_flag(value == 0);
+                state.p.set_zero_flag(value == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::JMP => { // this should be 4c
@@ -687,8 +705,11 @@ impl Instruction {
                 let low_byte = (*base_address & 0xFF) as u8;
                 let high_byte = ((*base_address).overflowing_shr(8).0 & 0xFF) as u8;
 
-                let first_write = state.write(state.sp.into(), high_byte);
-                let second_write = state.write(state.sp.into(), low_byte);
+                let first_write = state.write(state.s.into(), high_byte);
+                state.s = state.s.wrapping_sub(1);
+                let second_write = state.write(state.s.into(), low_byte);
+                state.s = state.s.wrapping_sub(1);
+
                 match (first_write, second_write) {
                     (Ok(_), Ok(_)) => (),
                     _ => return Err(()),
@@ -698,23 +719,23 @@ impl Instruction {
             },
             OpCode::LDA => {
                 state.a = argument as u8;
-                state.flags.set_zero_flag(state.a == 0);
+                state.p.set_zero_flag(state.a == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000);
             },
             OpCode::LDX => {
                 state.x = argument as u8;
-                state.flags.set_zero_flag(state.x == 0);
+                state.p.set_zero_flag(state.x == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((state.x & 0b01000000) == 0b01000000);
             },
             OpCode::LDY => {
                 state.y = argument as u8;
-                state.flags.set_zero_flag(state.y == 0);
+                state.p.set_zero_flag(state.y == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((state.y & 0b01000000) == 0b01000000);
             },
             OpCode::LSR => {
@@ -737,16 +758,112 @@ impl Instruction {
                     },
                 };
 
-                state.flags.set_carry_flag(overflow);
-                state.flags.set_zero_flag(value == 0);
+                state.p.set_carry_flag(overflow);
+                state.p.set_zero_flag(value == 0);
                 state
-                    .flags
+                    .p
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::NOP => (),
+            OpCode::ORA => {
+                let m = match state.read(argument.into()) {
+                    Some(m) => m,
+                    _ => return Err(()),
+                };
+                state.a = m ^ state.a;
+
+                state.p.set_zero_flag(state.a == 0);
+                state
+                    .p
+                    .set_negative_flag((state.a & 0b10000000) == 0b10000000);
+            },
+            OpCode::PHA => {
+                match state.write(0x100 + state.s as usize, state.a) {
+                    Ok(_) => {
+                        state.s = state.s.wrapping_sub(1);
+                    },
+                    _ => return Err(()),
+                };
+            }
+            OpCode::PHP => {
+                match state.write(0x100 + state.s as usize, state.p.value) {
+                    Ok(_) => {
+                        state.s = state.s.wrapping_sub(1);
+                    },
+                    _ => return Err(()),
+                };
+            }
+            OpCode::PLA => {
+                state.s = state.s.wrapping_add(1);
+                match state.read(0x100 + state.s as usize) {
+                    Some(ibyte) => {
+                        state.a = ibyte;
+                    },
+                    _ => return Err(()),
+                };
+            }
+            OpCode::PLP => {
+                state.s = state.s.wrapping_add(1);
+                match state.read(0x100 + state.s as usize) {
+                    Some(ibyte) => {
+                        state.p.value = ibyte;
+                    },
+                    _ => return Err(()),
+                };
+            }
+            OpCode::ROL => {
+                let input = match self.mode {
+                    Some(AddressingMode::Accumulator) => state.a,
+                    _ => match state.read(argument.into()) {
+                        Some(a) => a,
+                        _ => return Err(()),
+                    },
+                };
+                let value = input.rotate_left(1);
+
+                match self.mode {
+                    Some(AddressingMode::Accumulator) => {
+                        state.a = value;
+                    }
+                    _ => match state.write(argument.into(), value) {
+                        Err(_) => return Err(()),
+                        _ => (),
+                    },
+                };
+
+                state.p.set_carry_flag((input & 0b10000000) == 0b10000000);
+                state.p.set_zero_flag(value == 0);
+                state
+                    .p
+                    .set_negative_flag((value & 0b01000000) == 0b01000000);
+            }
             
+            OpCode::ROR => {
+                let input = match self.mode {
+                    Some(AddressingMode::Accumulator) => state.a,
+                    _ => match state.read(argument.into()) {
+                        Some(a) => a,
+                        _ => return Err(()),
+                    },
+                };
+                let value = input.rotate_right(1);
+
+                match self.mode {
+                    Some(AddressingMode::Accumulator) => {
+                        state.a = value;
+                    }
+                    _ => match state.write(argument.into(), value) {
+                        Err(_) => return Err(()),
+                        _ => (),
+                    },
+                };
+
+                state.p.set_negative_flag(state.p.carry_flag()) ;
+                state.p.set_carry_flag((input & 0b00000001) == 0b00000001);
+                state.p.set_zero_flag(value == 0);
+            }
             OpCode::SEI => {
-                state.flags.set_interrupt_disable_flag(true);
+                state.p.set_interrupt_disable_flag(true);
             },
             OpCode::STA => {
                 let _ = state.write(argument.into(), state.a);

@@ -439,6 +439,7 @@ impl Instruction {
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000)
             },
             OpCode::ASL => {
+                // TODO: NOT ALL CONDITIONS NEED MEMORY PAIR EARLY.
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
                 let address = memory_pair.address;
                 let value = memory_pair.value;

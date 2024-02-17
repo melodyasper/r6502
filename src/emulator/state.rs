@@ -110,8 +110,7 @@ impl SystemState {
                 return Err(None);
             }
         };
-        location = location + 1;
-
+        
         let instruction = Instruction::from(ibyte);
         match instruction.opcode {
             OpCode::UnknownInstruction(_) => {
@@ -124,6 +123,8 @@ impl SystemState {
             },
             _ => ()
         };
+
+        location = location + 1;
 
         match instruction.execute(self, &mut location) {
             Ok(_) => {

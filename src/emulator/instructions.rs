@@ -358,7 +358,8 @@ impl Instruction {
             },
             Some(AddressingMode::IndirectZeroPageX) => {
                 *base_address += 1;
-                let zero_page_address = state.read(*base_address)?.overflowing_add(state.x).0.into();
+                
+                let zero_page_address =(state.read(*base_address)? as u8).overflowing_add(state.x).0.into();
                 let low_byte = state.read(zero_page_address)?;
                 let high_byte = state.read(zero_page_address + 1)?;
                 
@@ -366,6 +367,23 @@ impl Instruction {
             }
             Some(AddressingMode::Accumulator) => {
                 state.a.into()
+            }
+            Some(AddressingMode::IndirectZeroPageY) => {
+                *base_address += 1;
+                // In indirect indexed addressing, the second byte of the instruction points to a memory 
+                //location in page zero. The contents of this memory location is added to the contents of 
+                //the Y index register, the result being the low order eight bits of the effective address. 
+                //The carry from this addition is added to the contents of the next page zero memory location, 
+                //the result being the high order eight bits of the effective address.
+                let zero_page_address = state.read(*base_address)?;
+                let (low_byte, overflow) = (state.read(zero_page_address as usize)? as u8).overflowing_add(state.y);
+                let overflow = match overflow {
+                    true => 1u8,
+                    false => 0u8,
+                };
+                let high_byte = state.read(zero_page_address as usize + 1usize)?.overflowing_add(overflow).0;
+                
+                ((high_byte as u16) << 8) + low_byte as u16
             }
             None => 0,
             _ => return Err(anyhow!(EmulatorError::InvalidInstructionMode)),
@@ -827,10 +845,42 @@ impl Instruction {
             OpCode::STA => {
                 let _ = state.write(argument.into(), state.a)?;
             },
+            OpCode::TAX => {
+                let value = state.a;
+                state.x = value;
+                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
+                state.p.set_zero_flag(value == 0);
+            }
+            OpCode::TAY => {
+                let value = state.a;
+                state.y = value;
+                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
+                state.p.set_zero_flag(value == 0);
+            }
+            OpCode::TSX => {
+                let value = state.s;
+                state.x = value;
+                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
+                state.p.set_zero_flag(value == 0);
+            }
+            OpCode::TXA => {
+                let value = state.x;
+                state.a = value;
+                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
+                state.p.set_zero_flag(value == 0);
+            }
             OpCode::TXS => {
-                state.s = state.x;
+                let value = state.x;
+                state.s = value;
+                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
+                state.p.set_zero_flag(value == 0);
             },
-            
+            OpCode::TYA => {
+                let value = state.y;
+                state.a = value;
+                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
+                state.p.set_zero_flag(value == 0);
+            },
             
             _ => return Err(anyhow!(EmulatorError::UnimplementedInstruction)),
         }

@@ -188,7 +188,73 @@ mod tests {
 
         state
     }
+    fn comprehensive_breakdown(
+        state: &mut SystemState,
+        state_final: &mut SystemState,
+    ) {
+        let time_start = Instant::now();
+        loop {
+            let time_now = Instant::now();
+            let difference = time_now - time_start;
+            if difference.as_secs_f32() > 0.1 {
+                println!("ERR(TIMEOUT)");
+                break;
+            }
+            let pc = state.pc;
+            let pcr1 = state.read(pc).unwrap();
+            let pcr2 = state.read(pc + 1).unwrap();
+            let pcr3 = state.read(pc + 2).unwrap();
+            let pcr4 = state.read(pc + 3).unwrap();
+            
 
+            println!("mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
+            println!("\tregisters: ");
+            println!("\tx: {:#04x}\ty: {:#04x}\ta: {:#04x}\tp: {:#04x}", state.x, state.y, state.a, state.p.value);
+            match state.execute_next_instruction() {
+                Ok(ref instruction) => {
+                    println!("OK_INS = {:?}", instruction);
+                },
+                Err(Some(instruction)) => {
+                    match instruction.opcode {
+                        OpCode::UnknownInstruction(ibyte) => {
+                            println!("UNKNOWN_INS = {:#04x}", ibyte);
+                        }
+                        OpCode::BadInstruction(ibyte) => {
+                            println!("BAD_INS = {:#04x}", ibyte);
+                        },
+                        _ => {
+                            println!("UNIMPLEMENTED =  {:?}", instruction);
+                        }
+                    }
+                    break;
+
+                }
+                Err(None) => {
+                    println!("ERR(NONE)");
+                    break;
+                }
+            }
+        }
+        let pc = state.pc;
+        let pcr1 = state.read(pc).unwrap();
+        let pcr2 = state.read(pc + 1).unwrap();
+        let pcr3 = state.read(pc + 2).unwrap();
+        let pcr4 = state.read(pc + 3).unwrap();
+        println!("final mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
+        println!("\tfinal registers: ");
+        println!("\tfinal x: {:#04x}\ty: {:#04x}\ta: {:#04x}\tp: {:#04x}", state.x, state.y, state.a, state.p.value);
+
+        let pc = state_final.pc;
+        let pcr1 = state_final.read(pc).unwrap();
+        let pcr2 = state_final.read(pc + 1).unwrap();
+        let pcr3 = state_final.read(pc + 2).unwrap();
+        let pcr4 = state_final.read(pc + 3).unwrap();
+        println!("expected mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
+        println!("\texpected registers: ");
+        println!("\texpected x: {:#04x}\ty: {:#04x}\ta: {:#04x}\tp: {:#04x}", state_final.x, state_final.y, state_final.a, state_final.p.value);
+
+
+    }
     fn debug_state_comparison(
         state_expected: &mut SystemState,
         state: &mut SystemState,
@@ -251,7 +317,7 @@ mod tests {
             tests_total += 1;
             let mut state = json_to_state(&value["initial"]);
             let mut final_state = json_to_state(&value["final"]);
-            // println!("Start state: {:#02x}", state.pc());
+            // println!("Start state: {:#04x}", state.pc());
 
             let time_start = Instant::now();
             loop {
@@ -285,23 +351,29 @@ mod tests {
                 }
             }
 
-            if debug_state_comparison(&mut final_state, &mut state, false) {
+            if debug_state_comparison(&mut final_state, &mut state, true) {
                 tests_passed += 1;
+            }
+            else {
+                let mut state = json_to_state(&value["initial"]);
+                let mut final_state = json_to_state(&value["final"]);
+                comprehensive_breakdown(&mut state, &mut final_state);
+                break;
             }
         }
         for i in unknown_instructions.iter() {
-            println!("Unknown Instruction {:#02x}", i);
+            println!("Unknown Instruction {:#04x}", i);
         }
         for i in unfinished_instructions.iter() {
             println!("The following instruction isnt implemented: {:?}", i);
         }
         
         if tests_passed != tests_total {
-            assert!(tests_passed == tests_total, "{:#02x} tests passed: {}/{}", instruction, tests_passed, tests_total);
+            assert!(tests_passed == tests_total, "{:#04x} tests passed: {}/{}", instruction, tests_passed, tests_total);
         };
     }
 
-    
+
 
     #[test]
     fn instruction_0x0_not_valid() {

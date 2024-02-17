@@ -101,7 +101,7 @@ impl std::fmt::Display for EmulatorError {
 
 impl SystemState {
     pub fn execute_next_instruction(&mut self) -> Result<Instruction, Option<Instruction>> {
-        let mut location = self.pc() + 1;
+        let mut location = self.pc();
         let next_instruction = self.read(location);
         let ibyte = match next_instruction {
             Ok(ibyte) => ibyte,
@@ -110,6 +110,8 @@ impl SystemState {
                 return Err(None);
             }
         };
+        location = location + 1;
+
         let instruction = Instruction::from(ibyte);
         match instruction.opcode {
             OpCode::UnknownInstruction(_) => {
@@ -209,7 +211,7 @@ mod tests {
 
             println!("mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
             println!("\tregisters: ");
-            println!("\tx: {:#04x}\ty: {:#04x}\ta: {:#04x}\tp: {:#04x}", state.x, state.y, state.a, state.p.value);
+            println!("\tpc: {:#04x} x: {:#04x} y: {:#04x} a: {:#04x} p: {:#04x}",state.pc, state.x, state.y, state.a, state.p.value);
             match state.execute_next_instruction() {
                 Ok(ref instruction) => {
                     println!("OK_INS = {:?}", instruction);
@@ -240,18 +242,17 @@ mod tests {
         let pcr2 = state.read(pc + 1).unwrap();
         let pcr3 = state.read(pc + 2).unwrap();
         let pcr4 = state.read(pc + 3).unwrap();
-        println!("final mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
-        println!("\tfinal registers: ");
-        println!("\tfinal x: {:#04x}\ty: {:#04x}\ta: {:#04x}\tp: {:#04x}", state.x, state.y, state.a, state.p.value);
-
+        println!("final mem @ pc    : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
         let pc = state_final.pc;
         let pcr1 = state_final.read(pc).unwrap();
         let pcr2 = state_final.read(pc + 1).unwrap();
         let pcr3 = state_final.read(pc + 2).unwrap();
         let pcr4 = state_final.read(pc + 3).unwrap();
         println!("expected mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
-        println!("\texpected registers: ");
-        println!("\texpected x: {:#04x}\ty: {:#04x}\ta: {:#04x}\tp: {:#04x}", state_final.x, state_final.y, state_final.a, state_final.p.value);
+
+
+        println!("\tfinal pc    : {:#04x} x: {:#04x} y: {:#04x} a: {:#04x} p: {:#04x}",state.pc, state.x, state.y, state.a, state.p.value);
+        println!("\texpected pc: {:#04x} x: {:#04x} y: {:#04x} a: {:#04x} p: {:#04x}", state_final.pc, state_final.x, state_final.y, state_final.a, state_final.p.value);
 
 
     }
@@ -368,9 +369,9 @@ mod tests {
             println!("The following instruction isnt implemented: {:?}", i);
         }
         
-        if tests_passed != tests_total {
-            assert!(tests_passed == tests_total, "{:#04x} tests passed: {}/{}", instruction, tests_passed, tests_total);
-        };
+        println!("{:#04x} tests passed: {}/{}", instruction, tests_passed, tests_total);
+        assert!(tests_passed == tests_total);
+        
     }
 
 

@@ -110,7 +110,6 @@ impl SystemState {
                 return Err(None);
             }
         };
-        
         let instruction = Instruction::from(ibyte);
         match instruction.opcode {
             OpCode::UnknownInstruction(_) => {
@@ -128,6 +127,7 @@ impl SystemState {
 
         match instruction.execute(self, &mut location) {
             Ok(_) => {
+                println!("\tpc advanced from {:#08x} to {:#08x}", self.pc, location);
                 self.set_pc(location);
                 Ok(instruction)
             }
@@ -142,6 +142,7 @@ impl SystemState {
     pub fn read(&mut self, address: usize) -> Result<u8> {
         
         let byte = self.m.get(address).ok_or(anyhow!(EmulatorError::MemoryReadError).context(format!("Memory read error at address {}", address)))?;
+        // println!("Reading from address {:#04x} yielded byte {:#04x}", address, *byte);
         Ok(*byte)
     }
     
@@ -195,49 +196,40 @@ mod tests {
         state: &mut SystemState,
         state_final: &mut SystemState,
     ) {
-        let time_start = Instant::now();
-        loop {
-            let time_now = Instant::now();
-            let difference = time_now - time_start;
-            if difference.as_secs_f32() > 0.1 {
-                println!("ERR(TIMEOUT)");
-                break;
-            }
-            let pc = state.pc;
-            let pcr1 = state.read(pc).unwrap();
-            let pcr2 = state.read(pc + 1).unwrap();
-            let pcr3 = state.read(pc + 2).unwrap();
-            let pcr4 = state.read(pc + 3).unwrap();
-            
 
-            println!("mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
-            println!("\tregisters: ");
-            println!("\tpc: {:#04x} x: {:#04x} y: {:#04x} a: {:#04x} p: {:#04x}",state.pc, state.x, state.y, state.a, state.p.value);
-            match state.execute_next_instruction() {
-                Ok(ref instruction) => {
-                    println!("OK_INS = {:?}", instruction);
-                },
-                Err(Some(instruction)) => {
-                    match instruction.opcode {
-                        OpCode::UnknownInstruction(ibyte) => {
-                            println!("UNKNOWN_INS = {:#04x}", ibyte);
-                        }
-                        OpCode::BadInstruction(ibyte) => {
-                            println!("BAD_INS = {:#04x}", ibyte);
-                        },
-                        _ => {
-                            println!("UNIMPLEMENTED =  {:?}", instruction);
-                        }
+        let pc = state.pc;
+        let pcr1 = state.read(pc).unwrap();
+        let pcr2 = state.read(pc + 1).unwrap();
+        let pcr3 = state.read(pc + 2).unwrap();
+        let pcr4 = state.read(pc + 3).unwrap();
+        
+
+        println!("mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}", pcr1, pcr2, pcr3, pcr4);
+        println!("\tregisters: ");
+        println!("\tpc: {:#04x} x: {:#04x} y: {:#04x} a: {:#04x} p: {:#04x}",state.pc, state.x, state.y, state.a, state.p.value);
+        match state.execute_next_instruction() {
+            Ok(ref instruction) => {
+                println!("OK_INS = {:?}", instruction);
+            },
+            Err(Some(instruction)) => {
+                match instruction.opcode {
+                    OpCode::UnknownInstruction(ibyte) => {
+                        println!("UNKNOWN_INS = {:#04x}", ibyte);
                     }
-                    break;
+                    OpCode::BadInstruction(ibyte) => {
+                        println!("BAD_INS = {:#04x}", ibyte);
+                    },
+                    _ => {
+                        println!("UNIMPLEMENTED =  {:?}", instruction);
+                    }
+                }
 
-                }
-                Err(None) => {
-                    println!("ERR(NONE)");
-                    break;
-                }
+            }
+            Err(None) => {
+                println!("ERR(NONE)");
             }
         }
+        
         let pc = state.pc;
         let pcr1 = state.read(pc).unwrap();
         let pcr2 = state.read(pc + 1).unwrap();
@@ -321,37 +313,29 @@ mod tests {
             let mut final_state = json_to_state(&value["final"]);
             // println!("Start state: {:#04x}", state.pc());
 
-            let time_start = Instant::now();
-            loop {
-                let time_now = Instant::now();
-                let difference = time_now - time_start;
-                if difference.as_secs_f32() > 0.1 {
-                    state.running = false;
-                }
-                match state.execute_next_instruction() {
-                    Ok(_) => (),
-                    Err(Some(instruction)) => {
-                        match instruction.opcode {
-                            OpCode::UnknownInstruction(ibyte) => {
-                                if unknown_instructions.contains(&ibyte) == false {
-                                    unknown_instructions.push(ibyte);
-                                }
-                            }
-                            OpCode::BadInstruction(_) => (),
-                            _ => {
-                                if unfinished_instructions.contains(&instruction) == false {
-                                    unfinished_instructions.push(instruction);
-                                }
+
+            match state.execute_next_instruction() {
+                Ok(_) => (),
+                Err(Some(instruction)) => {
+                    match instruction.opcode {
+                        OpCode::UnknownInstruction(ibyte) => {
+                            if unknown_instructions.contains(&ibyte) == false {
+                                unknown_instructions.push(ibyte);
                             }
                         }
-                        break;
+                        OpCode::BadInstruction(_) => (),
+                        _ => {
+                            if unfinished_instructions.contains(&instruction) == false {
+                                unfinished_instructions.push(instruction);
+                            }
+                        }
+                    }
 
-                    }
-                    Err(None) => {
-                        break;
-                    }
+                }
+                Err(None) => {
                 }
             }
+            
 
             if debug_state_comparison(&mut final_state, &mut state, true) {
                 tests_passed += 1;

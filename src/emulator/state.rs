@@ -52,7 +52,7 @@ impl StatusFlags {
 #[derive(Debug, PartialEq, Eq)]
 pub struct SystemState {
     pub running: bool,
-    pub pc: usize,
+    pub pc: u16,
     pub m: Vec<u8>,
     pub a: u8,
     pub x: u8,
@@ -86,6 +86,7 @@ pub enum EmulatorError {
     MemoryWriteError,
     UnimplementedInstruction,
     InvalidInstructionMode,
+    ExpectedMemoryPair,
 }
 
 impl std::fmt::Display for EmulatorError {
@@ -95,6 +96,7 @@ impl std::fmt::Display for EmulatorError {
             Self::MemoryWriteError => write!(f, "Memory write error"),
             Self::UnimplementedInstruction => write!(f, "Instruction not implemented"),
             Self::InvalidInstructionMode => write!(f, "Instruction mode is not a valid mode"),
+            Self::ExpectedMemoryPair => write!(f, "Memory pair was expected but received None"),
         }
     }
 }
@@ -139,29 +141,29 @@ impl SystemState {
         }
         
     }
-    pub fn read(&mut self, address: usize) -> Result<u8> {
+    pub fn read(&mut self, address: u16) -> Result<u8> {
         
-        let byte = self.m.get(address).ok_or(anyhow!(EmulatorError::MemoryReadError).context(format!("Memory read error at address {}", address)))?;
+        let byte = self.m.get(address as usize).ok_or(anyhow!(EmulatorError::MemoryReadError).context(format!("Memory read error at address {}", address)))?;
         // println!("Reading from address {:#04x} yielded byte {:#04x}", address, *byte);
         Ok(*byte)
     }
     
-    pub fn pc(&self) -> usize {
+    pub fn pc(&self) -> u16 {
         self.pc
     }
-    pub fn set_pc(&mut self, address: usize) -> () {
+    pub fn set_pc(&mut self, address: u16) -> () {
         self.pc = address
     }
-    pub fn write(&mut self, address: usize, value: u8) -> Result<()> {
+    pub fn write(&mut self, address: u16, value: u8) -> Result<()> {
         // println!("Writing to {:x} a value of {:x}", address, value);
         // println!("Insert into memory @ {} value {}", address, value);
 
         let length = self.m.len();
-        if length < address {
+        if length < address.into() {
             // TODO: Remove this hack.
-            self.m.resize(address + 1, 0x00);
+            self.m.resize(address as usize + 1, 0x00);
         }
-        self.m[address] = value;
+        self.m[address as usize] = value;
         Ok(())
     }
 }
@@ -176,7 +178,7 @@ mod tests {
 
     fn json_to_state(state_map: &Value) -> SystemState {
         let mut state = SystemState::default();
-        state.pc = state_map["pc"].as_u64().unwrap() as usize;
+        state.pc = state_map["pc"].as_u64().unwrap() as u16;
         state.a = state_map["a"].as_u64().unwrap() as u8;
         state.x = state_map["x"].as_u64().unwrap() as u8;
         state.y = state_map["y"].as_u64().unwrap() as u8;
@@ -185,7 +187,7 @@ mod tests {
 
         for memory in state_map["ram"].as_array().unwrap().iter() {
             let memory = memory.as_array().unwrap();
-            let address = memory.get(0).unwrap().as_u64().unwrap() as usize;
+            let address = memory.get(0).unwrap().as_u64().unwrap() as u16;
             let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
             state.write(address, value).unwrap();
         }

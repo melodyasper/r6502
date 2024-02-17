@@ -321,8 +321,10 @@ impl Instruction {
     pub fn execute<'a>(&self, state: &mut SystemState, base_address: &mut usize) -> Result<()> {
         let argument: u16 = match self.mode {
             Some(AddressingMode::Immediate | AddressingMode::Relative) => {
+                
+                let ret = state.read(*base_address)?.into();
                 *base_address += 1;
-                state.read(*base_address)?.into()
+                ret
             }
             Some(AddressingMode::DirectZeroPage) => {
                 *base_address += 1;
@@ -755,7 +757,8 @@ impl Instruction {
             OpCode::NOP => (),
             OpCode::ORA => {
                 let m = state.read(argument.into())?;
-                state.a = m ^ state.a;
+                println!("{} (loaded from {}) or {}", m,argument, state.a);
+                state.a = m | state.a;
 
                 state.p.set_zero_flag(state.a == 0);
                 state

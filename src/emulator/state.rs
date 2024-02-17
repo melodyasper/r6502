@@ -274,9 +274,9 @@ mod tests {
             if state.s != state_expected.s {
                 print!("s[{:x}, {:x}] ", state_expected.s, state.s);
             }
-            // if state.p != state_expected.p {
-            //     print!("p[{:x}, {:x}] ", state_expected.p, state.p);
-            // }
+            if state.p.value != state_expected.p.value {
+                print!("p[{:x}, {:x}] ", state_expected.p.value, state.p.value);
+            }
 
             let mvec: Vec<(usize, (u8, u8))> = state_expected
                 .m
@@ -344,6 +344,7 @@ mod tests {
                 let mut state = json_to_state(&value["initial"]);
                 let mut final_state = json_to_state(&value["final"]);
                 comprehensive_breakdown(&mut state, &mut final_state);
+                println!("{:?}", value["initial"]);
                 break;
             }
         }

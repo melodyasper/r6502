@@ -66,7 +66,7 @@ pub struct SystemState {
 impl Default for SystemState {
     fn default() -> Self {
         let mut memory: Vec<u8> = Vec::new();
-        memory.resize(128_000, 0x77);
+        memory.resize(128_000, 0x00);
         Self {
             running: Default::default(),
             pc: Default::default(),
@@ -159,7 +159,7 @@ impl SystemState {
         let length = self.m.len();
         if length < address {
             // TODO: Remove this hack.
-            self.m.resize(address + 1, 0x77);
+            self.m.resize(address + 1, 0x00);
         }
         self.m[address] = value;
         Ok(())
@@ -229,7 +229,7 @@ mod tests {
                 println!("ERR(NONE)");
             }
         }
-        
+
         let pc = state.pc;
         let pcr1 = state.read(pc).unwrap();
         let pcr2 = state.read(pc + 1).unwrap();

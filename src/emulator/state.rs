@@ -1,7 +1,7 @@
 use crate::emulator::instructions::Instruction;
 use crate::emulator::memory::DeviceMemory;
 use paste::paste;
-
+use anyhow::{Result, anyhow};
 use serde_json::{Result as SerdeResult, Value};
 use std::io::Read;
 use std::sync::Mutex;
@@ -80,13 +80,32 @@ impl Default for SystemState {
     }
 }
 
+#[derive(Debug)]
+pub enum EmulatorError {
+    MemoryReadError,
+    MemoryWriteError,
+    UnimplementedInstruction,
+    InvalidInstructionMode,
+}
+
+impl std::fmt::Display for EmulatorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MemoryReadError =>  write!(f, "Memory read error"),
+            Self::MemoryWriteError => write!(f, "Memory write error"),
+            Self::UnimplementedInstruction => write!(f, "Instruction not implemented"),
+            Self::InvalidInstructionMode => write!(f, "Instruction mode is not a valid mode"),
+        }
+    }
+}
+
 impl SystemState {
     pub fn execute_next_instruction(&mut self) -> Result<Instruction, Option<Instruction>> {
         let mut location = self.pc() + 1;
         let next_instruction = self.read(location);
         let ibyte = match next_instruction {
-            Some(ibyte) => ibyte,
-            None => {
+            Ok(ibyte) => ibyte,
+            Err(_) => {
                 self.running = false;
                 return Err(None);
             }
@@ -109,58 +128,41 @@ impl SystemState {
                 self.set_pc(location);
                 Ok(instruction)
             }
-            Err(_) => {
+            Err(message) => {
+                println!("{}", message);
                 self.running = false;
                 return Err(Some(instruction));
             },
         }
         
     }
-    pub fn read(&mut self, address: usize) -> Option<u8> {
-        match self.m.get(address) {
-            Some(value) => Some(*value),
-            None => None,
-        }
+    pub fn read(&mut self, address: usize) -> Result<u8> {
+        
+        let byte = self.m.get(address).ok_or(anyhow!(EmulatorError::MemoryReadError).context(format!("Memory read error at address {}", address)))?;
+        Ok(*byte)
     }
+    
     pub fn pc(&self) -> usize {
         self.pc
     }
     pub fn set_pc(&mut self, address: usize) -> () {
         self.pc = address
     }
-    pub fn write(&mut self, address: usize, value: u8) -> Result<(), ()> {
+    pub fn write(&mut self, address: usize, value: u8) -> Result<()> {
         // println!("Writing to {:x} a value of {:x}", address, value);
         // println!("Insert into memory @ {} value {}", address, value);
 
         let length = self.m.len();
         if length < address {
             // TODO: Remove this hack.
-            self.m.resize(address + 1, 0);
+            self.m.resize(address + 1, 0x77);
         }
         self.m[address] = value;
         Ok(())
     }
 }
 
-// #[derive(Deserialize)]
-// struct TestRam {
-//     data: (usize, u8),
-// }
-// struct TestRegisters {
-//     pc: usize,
-//     s: u8,
-//     a: u8,
-//     x: u8,
-//     y: u8,
-//     p: u8,
-//     ram: Vec<TestRam>
-// }
-// struct TestCase<'a> {
-//     name: &'a str,
-//     initial: TestRegisters,
-//     r#final: TestRegisters,
-//     cycles: Vec<(usize, u8, String)>,
-// }
+
 
 #[cfg(test)]
 mod tests {
@@ -185,39 +187,6 @@ mod tests {
         }
 
         state
-    }
-
-    fn run_to_completion(state: &mut SystemState) {
-        let time_start = Instant::now();
-        loop {
-            let time_now = Instant::now();
-            let difference = time_now - time_start;
-            if difference.as_secs_f32() > 1.0 {
-                state.running = false;
-            }
-            match state.execute_next_instruction() {
-                Ok(instruction) => 
-                {
-                    // println!("{:?} | Executed", instruction);
-                },
-                Err(Some(instruction)) => {
-                    match instruction.opcode {
-                        OpCode::BadInstruction(_) => {
-                            // Expected termination
-                        }
-                        _ => {
-                            println!("Failed to execute the instruction {:?}", instruction);
-                        }
-                        
-                    }
-                    break;
-                }
-                Err(None) => {
-                    println!("Read error");
-                    break;
-                }
-            }
-        }
     }
 
     fn debug_state_comparison(

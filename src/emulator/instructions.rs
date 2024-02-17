@@ -1,4 +1,5 @@
-use crate::emulator::state::SystemState;
+use crate::emulator::state::{EmulatorError, SystemState};
+use anyhow::{anyhow, Result};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum AddressingMode {
@@ -312,71 +313,54 @@ impl From<u8> for Instruction {
     }
 }
 
+
+
+
+
 impl Instruction {
-    pub fn execute<'a>(&self, state: &mut SystemState, base_address: &mut usize) -> Result<(), ()> {
+    pub fn execute<'a>(&self, state: &mut SystemState, base_address: &mut usize) -> Result<()> {
         let argument: u16 = match self.mode {
             Some(AddressingMode::Immediate | AddressingMode::Relative) => {
                 *base_address += 1;
-                match state.read(*base_address) {
-                    Some(argument) => argument.into(),
-                    _ => return Err(()),
-                }
+                state.read(*base_address)?.into()
             }
             Some(AddressingMode::DirectZeroPage) => {
                 *base_address += 1;
-                match state.read(*base_address) {
-                    Some(argument) => argument.into(),
-                    _ => return Err(()),
-                }
+                state.read(*base_address)?.into()
             }
             Some(AddressingMode::DirectZeroPageX) => {
                 *base_address += 1;
-                match state.read(*base_address) {
-                    Some(byte) => byte.overflowing_add(state.x).0.into(),
-                    _ => return Err(()),
-                }
+                state.read(*base_address)?.overflowing_add(state.x).0.into()
             }
             Some(AddressingMode::DirectAbsolute) => {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
                 *base_address += 2;
-                match (state.read(*base_address - 1), state.read(*base_address)) {
-                    (Some(low_byte), Some(high_byte)) => {
-                        let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
-                        address
-                    }
-                    _ => return Err(()),
-                }
+                let low_byte = state.read(*base_address - 1)?;
+                let high_byte = state.read(*base_address)?;
+                let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                address
             },
             Some(AddressingMode::DirectAbsoluteX) => {
                 *base_address += 2;
-                match (state.read(*base_address - 1), state.read(*base_address)) {
-                    (Some(low_byte), Some(high_byte)) => {
-                        let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
-                        let address = address.overflowing_add(state.x.into()).0;
-                        address
-                    }
-                    _ => return Err(()),
-                }
+                let low_byte = state.read(*base_address - 1)?;
+                let high_byte = state.read(*base_address)?;
+                let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                let address = address.overflowing_add(state.x.into()).0;
+                address
             }
             Some(AddressingMode::DirectAbsoluteY) => {
                 *base_address += 2;
-                match (state.read(*base_address - 1), state.read(*base_address)) {
-                    (Some(low_byte), Some(high_byte)) => {
-                        let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
-                        let address = address.overflowing_add(state.y.into()).0;
-                        address
-                    }
-                    _ => return Err(()),
-                }
+                let low_byte = state.read(*base_address - 1)?;
+                let high_byte = state.read(*base_address)?;
+                let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                let address = address.overflowing_add(state.y.into()).0;
+                address
             },
             Some(AddressingMode::IndirectZeroPageX) => {
                 *base_address += 1;
-                let zero_page_address = match state.read(*base_address) {
-                    Some(byte) => byte.overflowing_add(state.x).0.into(),
-                    _ => return Err(()),
-                };
-                let low_byte = state.read(zero_page_address).ok_or(())?;
-                let high_byte = state.read(zero_page_address + 1).ok_or(())?;
+                let zero_page_address = state.read(*base_address)?.overflowing_add(state.x).0.into();
+                let low_byte = state.read(zero_page_address)?;
+                let high_byte = state.read(zero_page_address + 1)?;
                 
                 ((high_byte as u16) << 8) + low_byte as u16
             }
@@ -384,15 +368,12 @@ impl Instruction {
                 state.a.into()
             }
             None => 0,
-            _ => return Err(()),
+            _ => return Err(anyhow!(EmulatorError::InvalidInstructionMode)),
         };
 
         match self.opcode {
             OpCode::ADC => {
-                let argument = match state.read(argument.into()) {
-                    Some(argument) => argument,
-                    _ => return Err(()),
-                };
+                let argument = state.read(argument.into())?;
 
                 // TODO: Decimal mode
                 let carry_flag: u16 = match state.p.carry_flag() {
@@ -408,10 +389,8 @@ impl Instruction {
                 state.p.set_zero_flag(state.a == 0);
             },
             OpCode::AND => {
-                let argument = match state.read(argument.into()) {
-                    Some(argument) => argument,
-                    _ => return Err(()),
-                };
+                let argument = state.read(argument.into())?;
+
                 state.a = argument & state.a;
                 state.p.set_zero_flag(state.a == 0);
                 state
@@ -421,10 +400,7 @@ impl Instruction {
             OpCode::ASL => {
                 let location = match self.mode {
                     Some(AddressingMode::Accumulator) => state.a,
-                    _ => match state.read(argument.into()) {
-                        Some(a) => a,
-                        _ => return Err(()),
-                    },
+                    _ => state.read(argument.into())?
                 };
                 let (value, overflow) = location.overflowing_shl(1);
 
@@ -432,10 +408,7 @@ impl Instruction {
                     Some(AddressingMode::Accumulator) => {
                         state.a = value;
                     }
-                    _ => match state.write(argument.into(), value) {
-                        Err(_) => return Err(()),
-                        _ => (),
-                    },
+                    _ => state.write(argument.into(), value)?
                 };
 
                 state.p.set_carry_flag(overflow);
@@ -496,10 +469,7 @@ impl Instruction {
                 }
             },
             OpCode::BIT => {
-                let argument = match state.read(argument.into()) {
-                    Some(argument) => argument,
-                    _ => return Err(()),
-                };
+                let argument = state.read(argument.into())?;
                 let result = argument & state.a;
                 state.p.set_zero_flag(result == 0);
                 state.p.set_overflow_flag(argument & 0b01000000  == 0b01000000);
@@ -562,16 +532,12 @@ impl Instruction {
                 let low_byte = (*base_address & 0xFF) as u8;
                 let high_byte = ((*base_address).overflowing_shr(8).0 & 0xFF) as u8;
 
-                let first_write = state.write(state.s.into(), high_byte);
+                state.write(state.s.into(), high_byte)?;
                 state.s = state.s.wrapping_sub(1);
-                let second_write = state.write(state.s.into(), low_byte);
+                state.write(state.s.into(), low_byte)?;
                 state.s = state.s.wrapping_sub(1);
-                let third_write = state.write(state.s.into(), state.p.value);
+                state.write(state.s.into(), state.p.value)?;
                 state.s = state.s.wrapping_sub(1);
-                match (first_write, second_write, third_write) {
-                    (Ok(_), Ok(_), Ok(_)) => (),
-                    _ => return Err(()),
-                };
                 // We don't mutate PC, we mutate base address which mutates PC
                 *base_address = argument.into();
 
@@ -623,10 +589,8 @@ impl Instruction {
                 state.p.set_overflow_flag(false);
             },
             OpCode::CMP => {
-                let argument = match state.read(argument.into()) {
-                    Some(argument) => argument,
-                    _ => return Err(()),
-                };
+                let argument = state.read(argument.into())?;
+
                 let result = state.a.overflowing_sub(argument).0;
                 state.p.set_zero_flag(result == 0);
                 state.p.set_carry_flag(argument <= state.a);
@@ -635,10 +599,7 @@ impl Instruction {
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::CPX => {
-                let argument = match state.read(argument.into()) {
-                    Some(argument) => argument,
-                    _ => return Err(()),
-                };
+                let argument = state.read(argument.into())?;
                 let result = state.x.overflowing_sub(argument).0;
                 state.p.set_zero_flag(result == 0);
                 state.p.set_carry_flag(state.x >= argument);
@@ -647,10 +608,8 @@ impl Instruction {
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::CPY => {
-                let argument = match state.read(argument.into()) {
-                    Some(argument) => argument,
-                    _ => return Err(()),
-                };
+                let argument = state.read(argument.into())?;
+
                 let result = state.y.overflowing_sub(argument).0;
                 state.p.set_zero_flag(result == 0);
                 state.p.set_carry_flag(state.y >= argument);
@@ -659,17 +618,10 @@ impl Instruction {
                     .set_negative_flag((argument & 0b10000000) == 0b10000000)
             },
             OpCode::DEC => {
-                let m = match state.read(argument.into()) {
-                    Some(m) => m,
-                    _ => return Err(()),
-                };
+                let m = state.read(argument.into())?;
 
-                let (value, _) = m.overflowing_sub(1);
-
-                match state.write(argument.into(), value) {
-                    Err(_) => return Err(()),
-                    _ => (),
-                };
+                let value = m.wrapping_sub(1);
+                state.write(argument.into(), value)?;
 
                 state.p.set_zero_flag(value == 0);
                 state
@@ -691,10 +643,7 @@ impl Instruction {
                     .set_negative_flag((state.y & 0b10000000) == 0b10000000);
             },
             OpCode::EOR => {
-                let m = match state.read(argument.into()) {
-                    Some(m) => m,
-                    _ => return Err(()),
-                };
+                let m = state.read(argument.into())?;
                 state.a = state.a ^ m;
                 state.p.set_zero_flag(state.a == 0);
                 state
@@ -702,17 +651,10 @@ impl Instruction {
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000);
             },
             OpCode::INC => {
-                let m = match state.read(argument.into()) {
-                    Some(m) => m,
-                    _ => return Err(()),
-                };
+                let m = state.read(argument.into())?;
+                let value = m.wrapping_add(1);
 
-                let (value, _) = m.overflowing_add(1);
-
-                match state.write(argument.into(), value) {
-                    Err(_) => return Err(()),
-                    _ => (),
-                };
+                state.write(argument.into(), value)?;
 
                 state.p.set_zero_flag(value == 0);
                 state
@@ -720,7 +662,7 @@ impl Instruction {
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::INX => {
-                let (value, _) = state.x.overflowing_add(1);
+                let value = state.x.wrapping_add(1);
 
                 state.p.set_zero_flag(value == 0);
                 state
@@ -728,7 +670,7 @@ impl Instruction {
                     .set_negative_flag((value & 0b10000000) == 0b10000000);
             },
             OpCode::INY => {
-                let (value, _) = state.y.overflowing_add(1);
+                let value = state.y.wrapping_add(1);
 
                 state.p.set_zero_flag(value == 0);
                 state
@@ -743,15 +685,11 @@ impl Instruction {
                 let low_byte = (*base_address & 0xFF) as u8;
                 let high_byte = ((*base_address).overflowing_shr(8).0 & 0xFF) as u8;
 
-                let first_write = state.write(state.s.into(), high_byte);
+                state.write(state.s.into(), high_byte)?;
                 state.s = state.s.wrapping_sub(1);
-                let second_write = state.write(state.s.into(), low_byte);
+                state.write(state.s.into(), low_byte)?;
                 state.s = state.s.wrapping_sub(1);
 
-                match (first_write, second_write) {
-                    (Ok(_), Ok(_)) => (),
-                    _ => return Err(()),
-                };
                 // We don't mutate PC, we mutate base address which mutates PC
                 *base_address = argument.into();
             },
@@ -779,10 +717,7 @@ impl Instruction {
             OpCode::LSR => {
                 let location = match self.mode {
                     Some(AddressingMode::Accumulator) => state.a,
-                    _ => match state.read(argument.into()) {
-                        Some(a) => a,
-                        _ => return Err(()),
-                    },
+                    _ => state.read(argument.into())?
                 };
                 let (value, overflow) = location.overflowing_shr(1);
 
@@ -790,10 +725,7 @@ impl Instruction {
                     Some(AddressingMode::Accumulator) => {
                         state.a = value;
                     }
-                    _ => match state.write(argument.into(), value) {
-                        Err(_) => return Err(()),
-                        _ => (),
-                    },
+                    _ => state.write(argument.into(), value)?
                 };
 
                 state.p.set_carry_flag(overflow);
@@ -804,10 +736,7 @@ impl Instruction {
             },
             OpCode::NOP => (),
             OpCode::ORA => {
-                let m = match state.read(argument.into()) {
-                    Some(m) => m,
-                    _ => return Err(()),
-                };
+                let m = state.read(argument.into())?;
                 state.a = m ^ state.a;
 
                 state.p.set_zero_flag(state.a == 0);
@@ -816,46 +745,26 @@ impl Instruction {
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000);
             },
             OpCode::PHA => {
-                match state.write(0x100 + state.s as usize, state.a) {
-                    Ok(_) => {
-                        state.s = state.s.wrapping_sub(1);
-                    },
-                    _ => return Err(()),
-                };
+                state.write(0x100 + state.s as usize, state.a)?;
+                state.s = state.s.wrapping_sub(1);
+                
             }
             OpCode::PHP => {
-                match state.write(0x100 + state.s as usize, state.p.value) {
-                    Ok(_) => {
-                        state.s = state.s.wrapping_sub(1);
-                    },
-                    _ => return Err(()),
-                };
+                state.write(0x100 + state.s as usize, state.p.value)?;
+                state.s = state.s.wrapping_sub(1);
             }
             OpCode::PLA => {
                 state.s = state.s.wrapping_add(1);
-                match state.read(0x100 + state.s as usize) {
-                    Some(ibyte) => {
-                        state.a = ibyte;
-                    },
-                    _ => return Err(()),
-                };
+                state.a = state.read(0x100 + state.s as usize)?;
             }
             OpCode::PLP => {
                 state.s = state.s.wrapping_add(1);
-                match state.read(0x100 + state.s as usize) {
-                    Some(ibyte) => {
-                        state.p.value = ibyte;
-                    },
-                    _ => return Err(()),
-                };
+                state.p.value = state.read(0x100 + state.s as usize)?;
             }
             OpCode::ROL => {
                 let input = match self.mode {
                     Some(AddressingMode::Accumulator) => state.a,
-                    _ => match state.read(argument.into()) {
-                        Some(a) => a,
-                        _ => return Err(()),
-                    },
+                    _ => state.read(argument.into())?
                 };
                 let value = input.rotate_left(1);
 
@@ -863,10 +772,7 @@ impl Instruction {
                     Some(AddressingMode::Accumulator) => {
                         state.a = value;
                     }
-                    _ => match state.write(argument.into(), value) {
-                        Err(_) => return Err(()),
-                        _ => (),
-                    },
+                    _ => state.write(argument.into(), value)?
                 };
 
                 state.p.set_carry_flag((input & 0b10000000) == 0b10000000);
@@ -879,21 +785,16 @@ impl Instruction {
             OpCode::ROR => {
                 let input = match self.mode {
                     Some(AddressingMode::Accumulator) => state.a,
-                    _ => match state.read(argument.into()) {
-                        Some(a) => a,
-                        _ => return Err(()),
-                    },
+                    _ => state.read(argument.into())?
                 };
+
                 let value = input.rotate_right(1);
 
                 match self.mode {
                     Some(AddressingMode::Accumulator) => {
                         state.a = value;
                     }
-                    _ => match state.write(argument.into(), value) {
-                        Err(_) => return Err(()),
-                        _ => (),
-                    },
+                    _ => state.write(argument.into(), value)?
                 };
 
                 state.p.set_negative_flag(state.p.carry_flag()) ;
@@ -903,20 +804,20 @@ impl Instruction {
             OpCode::RTI => {
 
                 state.s = state.s.wrapping_add(1);
-                let r1 = state.read(0x100 + state.s as usize).ok_or(())?;
+                let r1 = state.read(0x100 + state.s as usize)?;
                 state.s = state.s.wrapping_add(1);
-                let r2 = state.read(0x100 + state.s as usize).ok_or(())?;
+                let r2 = state.read(0x100 + state.s as usize)?;
                 state.s = state.s.wrapping_add(1);
-                let r3 = state.read(0x100 + state.s as usize).ok_or(())?;
+                let r3 = state.read(0x100 + state.s as usize)?;
                 
                 state.p.value = r1;
                 *base_address = (r2 as usize).overflowing_add((r3 as usize).overflowing_shl(8).0).0;
             }
             OpCode::RTS => {
                 state.s = state.s.wrapping_add(1);
-                let r1 = state.read(0x100 + state.s as usize).ok_or(())?;
+                let r1 = state.read(0x100 + state.s as usize)?;
                 state.s = state.s.wrapping_add(1);
-                let r2 = state.read(0x100 + state.s as usize).ok_or(())?;
+                let r2 = state.read(0x100 + state.s as usize)?;
 
                 *base_address = (r1 as usize).overflowing_add((r2 as usize).overflowing_shl(8).0).0;
             }
@@ -924,14 +825,14 @@ impl Instruction {
                 state.p.set_interrupt_disable_flag(true);
             },
             OpCode::STA => {
-                let _ = state.write(argument.into(), state.a);
+                let _ = state.write(argument.into(), state.a)?;
             },
             OpCode::TXS => {
                 state.s = state.x;
             },
             
             
-            _ => return Err(()),
+            _ => return Err(anyhow!(EmulatorError::UnimplementedInstruction)),
         }
         // state.print_registers();
         Ok(())

@@ -13,7 +13,7 @@ pub enum AddressingMode {
     DirectAbsoluteX,
     Accumulator,
     Relative,
-}
+}   
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Instruction {
@@ -380,10 +380,10 @@ impl Instruction {
                 let zero_page_address =(state.read(*base_address)? as u8).overflowing_add(state.x).0.into();
                 *base_address += 1;
                 let low_byte = state.read(zero_page_address)?;
-                let high_byte = state.read(zero_page_address + 1)?;
+                let high_byte = state.read((zero_page_address as u8).wrapping_add(1) as u16)?;
                 
                 let address = ((high_byte as u16) << 8) + low_byte as u16;
-                let value = state.read(*base_address)?;
+                let value = state.read(address)?;
                 Some(MemoryPair { address: address.into(), value })
             }
             Some(AddressingMode::Accumulator) => {

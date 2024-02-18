@@ -346,7 +346,14 @@ mod tests {
                 let mut state = json_to_state(&value["initial"]);
                 let mut final_state = json_to_state(&value["final"]);
                 comprehensive_breakdown(&mut state, &mut final_state);
-                println!("{:?}", value["initial"]);
+
+                println!("Initial memory");
+                for memory in value["initial"]["ram"].as_array().unwrap().iter() {
+                    let memory = memory.as_array().unwrap();
+                    let address = memory.get(0).unwrap().as_u64().unwrap() as u16;
+                    let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
+                    println!("{} => {}", address, value);
+                }
                 break;
             }
         }

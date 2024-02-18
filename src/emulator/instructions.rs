@@ -351,7 +351,7 @@ impl Instruction {
                 let high_byte = state.read(*base_address)?;
                 *base_address += 1;
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
-                let value = state.read(*base_address)?;
+                let value = state.read(address)?;
                 Some(MemoryPair { address: address.into(), value })
             },
             Some(AddressingMode::DirectAbsoluteX) => {
@@ -396,16 +396,16 @@ impl Instruction {
                 //the Y index register, the result being the low order eight bits of the effective address. 
                 //The carry from this addition is added to the contents of the next page zero memory location, 
                 //the result being the high order eight bits of the effective address.
-                let zero_page_address = state.read(*base_address)?;
+                let next_address = state.read(*base_address)?;
                 *base_address += 1;
-                let (low_byte, overflow) = (state.read(zero_page_address as u16)? as u8).overflowing_add(state.y);
+                let (low_byte, overflow) = (state.read(next_address as u16)? as u8).overflowing_add(state.y);
                 let overflow = match overflow {
                     true => 1u8,
                     false => 0u8,
                 };
-                let high_byte = state.read(zero_page_address as u16 + 1)?.overflowing_add(overflow).0;
+                let high_byte = state.read(next_address.wrapping_add(1) as u16)?.overflowing_add(overflow).0;
                 let address = ((high_byte as u16) << 8) + low_byte as u16;
-                let value = state.read(*base_address)?;
+                let value = state.read(address)?;
                 Some(MemoryPair { address: address.into(), value })
             }
             None => None,

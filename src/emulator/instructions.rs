@@ -359,10 +359,9 @@ impl Instruction {
                 *base_address += 1;
                 let high_byte = state.read(*base_address)?;
                 *base_address += 1;
-
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                 let address = address.overflowing_add(state.x.into()).0;
-                let value = state.read(*base_address)?;
+                let value = state.read(address)?;
                 Some(MemoryPair { address: address.into(), value })
             }
             Some(AddressingMode::DirectAbsoluteY) => {
@@ -372,7 +371,7 @@ impl Instruction {
                 *base_address += 1;
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                 let address = address.overflowing_add(state.y.into()).0;
-                let value = state.read(*base_address)?;
+                let value = state.read(address)?;
                 Some(MemoryPair { address: address.into(), value })
             },
             Some(AddressingMode::IndirectZeroPageX) => {

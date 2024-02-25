@@ -438,21 +438,20 @@ impl Instruction {
                     .set_negative_flag((state.a & 0b10000000) == 0b10000000)
             },
             OpCode::ASL => {
-                // TODO: NOT ALL CONDITIONS NEED MEMORY PAIR EARLY.
-                let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
-                let address = memory_pair.address;
-                let value = memory_pair.value;
-                let location = match self.mode {
-                    Some(AddressingMode::Accumulator) => state.a,
-                    _ => value
-                };
-                let (value, overflow) = location.overflowing_shl(1);
-
-                match self.mode {
+                let (value, overflow) = match self.mode {
                     Some(AddressingMode::Accumulator) => {
-                        state.a = value;
+                        let out = state.a.overflowing_shl(1);
+                        state.a = out.0;
+                        out
+                    },
+                    _ => {
+                        let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
+                        let address = memory_pair.address;
+                        let value = memory_pair.value;
+                        let out = value.overflowing_shl(1);
+                        state.write(address, out.0)?;
+                        out
                     }
-                    _ => state.write(address, value)?
                 };
 
                 state.p.set_carry_flag(overflow);
@@ -773,22 +772,22 @@ impl Instruction {
                     .set_negative_flag((state.y & 0b01000000) == 0b01000000);
             },
             OpCode::LSR => {
-                let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
-                let address = memory_pair.address;
-                let value = memory_pair.value;
-                let location = match self.mode {
-                    Some(AddressingMode::Accumulator) => state.a,
-                    _ => value
-                };
-                let (value, overflow) = location.overflowing_shr(1);
+                let (value, overflow) = match self.mode { 
+                    Some(AddressingMode::Accumulator) =>  {
+                        let out = state.a.overflowing_shr(1);
+                        state.a = out.0;
+                        out
+                    },
+                    _ => {
+                        let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
+                        let address = memory_pair.address;
+                        let value = memory_pair.value;
 
-                match self.mode {
-                    Some(AddressingMode::Accumulator) => {
-                        state.a = value;
+                        let out = value.overflowing_shr(1);
+                        state.write(address, out.0)?;
+                        out
                     }
-                    _ => state.write(address, value)?
                 };
-
                 state.p.set_carry_flag(overflow);
                 state.p.set_zero_flag(value == 0);
                 state
@@ -823,50 +822,55 @@ impl Instruction {
                 state.p.value = state.read(0x100 + state.s as u16)?;
             }
             OpCode::ROL => {
-                let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
-                let address = memory_pair.address;
-                let value = memory_pair.value;
-                let input = match self.mode {
-                    Some(AddressingMode::Accumulator) => state.a,
-                    _ => value
-                };
-                let value = input.rotate_left(1);
-
-                match self.mode {
+                let (input, output) = match self.mode {
                     Some(AddressingMode::Accumulator) => {
-                        state.a = value;
+                        let input = state.a;
+                        let output = input.rotate_left(1);
+                        state.a = output;
+                        (input, output)
+                    },
+                    _ => {
+                        let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
+                        let address = memory_pair.address;
+                        let value = memory_pair.value;
+                        let input = value;
+                        let output = input.rotate_left(1);
+                        state.write(address, value)?;
+                        (input, output)
+
                     }
-                    _ => state.write(address, value)?
                 };
 
                 state.p.set_carry_flag((input & 0b10000000) == 0b10000000);
-                state.p.set_zero_flag(value == 0);
+                state.p.set_zero_flag(output == 0);
                 state
                     .p
-                    .set_negative_flag((value & 0b01000000) == 0b01000000);
+                    .set_negative_flag((output & 0b01000000) == 0b01000000);
             }
             
             OpCode::ROR => {
-                let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
-                let address = memory_pair.address;
-                let value = memory_pair.value;
-                let input = match self.mode {
-                    Some(AddressingMode::Accumulator) => state.a,
-                    _ => value
-                };
-
-                let value = input.rotate_right(1);
-
-                match self.mode {
+                let (input, output) = match self.mode {
                     Some(AddressingMode::Accumulator) => {
-                        state.a = value;
+                        let input = state.a;
+                        let output = input.rotate_left(1);
+                        state.a = output;
+                        (input, output)
+                    },
+                    _ => {
+                        let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
+                        let address = memory_pair.address;
+                        let value = memory_pair.value;
+                        let input = value;
+                        let output = input.rotate_right(1);
+                        state.write(address, value)?;
+                        (input, output)
+
                     }
-                    _ => state.write(address, value)?
                 };
 
                 state.p.set_negative_flag(state.p.carry_flag()) ;
                 state.p.set_carry_flag((input & 0b00000001) == 0b00000001);
-                state.p.set_zero_flag(value == 0);
+                state.p.set_zero_flag(output == 0);
             }
             OpCode::RTI => {
 

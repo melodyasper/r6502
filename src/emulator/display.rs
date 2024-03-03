@@ -1,12 +1,12 @@
-use sdl2::pixels::Color;
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use std::time::Duration;
+// use sdl2::pixels::Color;
+// use sdl2::event::Event;
+// use sdl2::keyboard::Keycode;
+// use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use crate::emulator::state::SystemState;
-use crate::emulator::colors::ntsc_to_rgb;
+// use crate::emulator::colors::ntsc_to_rgb;
 
-use super::memory::DeviceMemory;
+// use super::memory::DeviceMemory;
 
 pub struct Renderer {
     pub state: Arc<Mutex<SystemState>>

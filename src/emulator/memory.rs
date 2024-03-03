@@ -153,7 +153,6 @@ impl TryFrom<DeviceMemory> for u8 {
             DeviceMemory::HMOVE => Ok(0x2A),
             DeviceMemory::HMCLR => Ok(0x2B),
             DeviceMemory::CXCLR => Ok(0x2C),
-            _ => Err(())
         }
     }
 }

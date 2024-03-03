@@ -326,20 +326,20 @@ impl Instruction {
             Some(AddressingMode::Immediate | AddressingMode::Relative) => {
                 let address = *base_address;
                 let value = state.read(address)?.into();
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 Some(MemoryPair { address , value})
             }
             Some(AddressingMode::DirectZeroPage) => {
                 let address = *base_address;
                 let value = state.read(address)?;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let value = state.read(value as u16)?;
                 Some(MemoryPair { address , value})
             }
             Some(AddressingMode::DirectZeroPageX) => {
                 let address = *base_address;
                 let address = state.read(address)?.overflowing_add(state.x).0;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let value = state.read(address.into())?;
                 Some(MemoryPair { address: address.into(), value })
             }
@@ -347,18 +347,18 @@ impl Instruction {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
                 
                 let low_byte = state.read(*base_address)?;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let high_byte = state.read(*base_address)?;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                 let value = state.read(address)?;
                 Some(MemoryPair { address: address.into(), value })
             },
             Some(AddressingMode::DirectAbsoluteX) => {
                 let low_byte = state.read(*base_address)?;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let high_byte = state.read(*base_address)?;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                 let address = address.overflowing_add(state.x.into()).0;
                 let value = state.read(address)?;
@@ -366,9 +366,9 @@ impl Instruction {
             }
             Some(AddressingMode::DirectAbsoluteY) => {
                 let low_byte = state.read(*base_address)?;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let high_byte = state.read(*base_address)?;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                 let address = address.overflowing_add(state.y.into()).0;
                 let value = state.read(address)?;
@@ -377,7 +377,7 @@ impl Instruction {
             Some(AddressingMode::IndirectZeroPageX) => {
                 
                 let zero_page_address =(state.read(*base_address)? as u8).overflowing_add(state.x).0.into();
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let low_byte = state.read(zero_page_address)?;
                 let high_byte = state.read((zero_page_address as u8).wrapping_add(1) as u16)?;
                 
@@ -396,7 +396,7 @@ impl Instruction {
                 //The carry from this addition is added to the contents of the next page zero memory location, 
                 //the result being the high order eight bits of the effective address.
                 let next_address = state.read(*base_address)?;
-                *base_address += 1;
+                *base_address = (*base_address).wrapping_add(1);
                 let (low_byte, overflow) = (state.read(next_address as u16)? as u8).overflowing_add(state.y);
                 let overflow = match overflow {
                     true => 1u8,
@@ -408,7 +408,6 @@ impl Instruction {
                 Some(MemoryPair { address: address.into(), value })
             }
             None => None,
-            _ => return Err(anyhow!(EmulatorError::InvalidInstructionMode)),
         };
 
         match self.opcode {
@@ -692,7 +691,7 @@ impl Instruction {
             },
             OpCode::EOR => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
-                let address = memory_pair.address;
+                let _ = memory_pair.address;
                 let value = memory_pair.value;
                 state.a = state.a ^ value;
                 state.p.set_zero_flag(state.a == 0);

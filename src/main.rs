@@ -1,8 +1,5 @@
-mod emulator;
-use emulator::instructions::{self, Instruction};
-
-use crate::emulator::state::{SystemState, StatusFlags};
-use crate::emulator::display::Renderer;
+use r6502::emulator::state::{SystemState, StatusFlags};
+use r6502::emulator::display::Renderer;
 use std::thread;
 use std::sync::{Arc, Mutex};
 

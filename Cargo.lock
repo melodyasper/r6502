@@ -81,7 +81,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ratari"
+name = "r6502"
 version = "0.1.0"
 dependencies = [
  "anyhow",

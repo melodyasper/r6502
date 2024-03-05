@@ -2,6 +2,10 @@ use r6502::emulator::instructions::OpCode;
 use r6502::emulator::state::{StatusFlags, SystemState};
 
 use serde_json::Value;
+use tabled::builder::Builder;
+use tabled::settings::themes::ColumnNames;
+use tabled::settings::Style;
+use tabled::Table;
 use std::fs::File;
 use std::io::Read;
 
@@ -96,39 +100,28 @@ fn debug_state_comparison(
     state.p = StatusFlags { value: 0 };
     let result = state_expected == state;
     if result == false && print_me == true {
-        print!("R[E,F] | ");
-        if state.pc != state_expected.pc {
-            print!("pc[{:x}, {:x}] ", state_expected.pc, state.pc);
-        }
-        if state.x != state_expected.x {
-            print!("x[{:x}, {:x}] ", state_expected.x, state.x);
-        }
-        if state.y != state_expected.y {
-            print!("y[{:x}, {:x}] ", state_expected.y, state.y);
-        }
-        if state.a != state_expected.a {
-            print!("a[{:x}, {:x}] ", state_expected.a, state.a);
-        }
-        if state.s != state_expected.s {
-            print!("s[{:x}, {:x}] ", state_expected.s, state.s);
-        }
-        if state.p.value != state_expected.p.value {
-            print!("p[{:x}, {:x}] ", state_expected.p.value, state.p.value);
-        }
+        let mut table = Table::new(vec![("final state", &*state), ("expected state", &*state_expected)]);
+        table.with(Style::modern());
+        println!("{}", table);
 
-        let mvec: Vec<(usize, (u8, u8))> = state_expected
+        let mvec: Vec<Vec<String>> = state_expected
             .m
             .clone()
             .into_iter()
             .zip(state.m.clone().into_iter())
             .enumerate()
+            .filter(|(_, (a, b))| a != b)
+            .map(
+                |(addr, (exp, fin))| {
+                    vec![addr.to_string(), exp.to_string(), fin.to_string()]
+        })
             .collect();
 
-        for (address, (em, fm)) in mvec.into_iter() {
-            if em != fm {
-                println!("memory @{}: {} | {} ", address, em, fm);
-            }
-        }
+        let mut table = Builder::from(mvec).build();
+        table.with(Style::modern());
+        
+        table.with(ColumnNames::new(["Memory Location", "Expected", "Final"]));
+        println!("{}", table);
         println!("");
     }
 
@@ -173,25 +166,6 @@ fn run_processor_test(filename: String, instruction: u8) {
         if debug_state_comparison(&mut final_state, &mut state, true) {
             tests_passed += 1;
         } else {
-            let mut state = json_to_state(&value["initial"]);
-            let mut final_state = json_to_state(&value["final"]);
-            comprehensive_breakdown(&mut state, &mut final_state);
-
-            println!("Initial memory");
-            for memory in value["initial"]["ram"].as_array().unwrap().iter() {
-                let memory = memory.as_array().unwrap();
-                let address = memory.get(0).unwrap().as_u64().unwrap() as u16;
-                let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
-                println!("{} => {}", address, value);
-            }
-
-            println!("Final memory");
-            for memory in value["final"]["ram"].as_array().unwrap().iter() {
-                let memory = memory.as_array().unwrap();
-                let address = memory.get(0).unwrap().as_u64().unwrap() as u16;
-                let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
-                println!("{} => {}", address, value);
-            }
             break;
         }
     }

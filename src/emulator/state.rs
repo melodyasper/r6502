@@ -1,6 +1,7 @@
 use crate::emulator::instructions::{Instruction, OpCode};
 use paste::paste;
 use anyhow::{Result, anyhow};
+use tabled::Tabled;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct StatusFlags {
@@ -41,10 +42,11 @@ impl StatusFlags {
     // You can add more getters and setters for other bits following the pattern above.
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Tabled)]
 pub struct SystemState {
     pub running: bool,
     pub pc: u16,
+    #[tabled(skip)]
     pub m: Vec<u8>,
     pub a: u8,
     pub x: u8,
@@ -52,6 +54,7 @@ pub struct SystemState {
     // Stack Pointer
     // The processor supports a 256 byte stack located between $0100 and $01FF
     pub s: u8,
+    #[tabled(skip)]
     pub p: StatusFlags,
 }
 

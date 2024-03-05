@@ -31,12 +31,12 @@ fn comprehensive_breakdown(state: &mut SystemState, state_final: &mut SystemStat
     let pcr4 = state.read(pc + 3).unwrap();
 
     println!(
-        "mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}",
+        "mem @ pc : {} {} {} {}",
         pcr1, pcr2, pcr3, pcr4
     );
     println!("\tregisters: ");
     println!(
-        "\tpc: {:#04x} x: {:#04x} y: {:#04x} a: {:#04x} p: {:#04x}",
+        "\tpc: {} x: {} y: {} a: {} p: {}",
         state.pc, state.x, state.y, state.a, state.p.value
     );
     match state.execute_next_instruction() {
@@ -45,10 +45,10 @@ fn comprehensive_breakdown(state: &mut SystemState, state_final: &mut SystemStat
         }
         Err(Some(instruction)) => match instruction.opcode {
             OpCode::UnknownInstruction(ibyte) => {
-                println!("UNKNOWN_INS = {:#04x}", ibyte);
+                println!("UNKNOWN_INS = {}", ibyte);
             }
             OpCode::BadInstruction(ibyte) => {
-                println!("BAD_INS = {:#04x}", ibyte);
+                println!("BAD_INS = {}", ibyte);
             }
             _ => {
                 println!("UNIMPLEMENTED =  {:?}", instruction);
@@ -65,7 +65,7 @@ fn comprehensive_breakdown(state: &mut SystemState, state_final: &mut SystemStat
     let pcr3 = state.read(pc + 2).unwrap();
     let pcr4 = state.read(pc + 3).unwrap();
     println!(
-        "final mem @ pc    : {:#04x} {:#04x} {:#04x} {:#04x}",
+        "final mem @ pc    : {} {} {} {}",
         pcr1, pcr2, pcr3, pcr4
     );
     let pc = state_final.pc;
@@ -74,16 +74,16 @@ fn comprehensive_breakdown(state: &mut SystemState, state_final: &mut SystemStat
     let pcr3 = state_final.read(pc + 2).unwrap();
     let pcr4 = state_final.read(pc + 3).unwrap();
     println!(
-        "expected mem @ pc : {:#04x} {:#04x} {:#04x} {:#04x}",
+        "expected mem @ pc : {} {} {} {}",
         pcr1, pcr2, pcr3, pcr4
     );
 
     println!(
-        "\tfinal pc    : {:#04x} x: {:#04x} y: {:#04x} a: {:#04x} p: {:#04x}",
+        "\tfinal pc    : {} x: {} y: {} a: {} p: {}",
         state.pc, state.x, state.y, state.a, state.p.value
     );
     println!(
-        "\texpected pc: {:#04x} x: {:#04x} y: {:#04x} a: {:#04x} p: {:#04x}",
+        "\texpected pc: {} x: {} y: {} a: {} p: {}",
         state_final.pc, state_final.x, state_final.y, state_final.a, state_final.p.value
     );
 }
@@ -126,7 +126,7 @@ fn debug_state_comparison(
 
         for (address, (em, fm)) in mvec.into_iter() {
             if em != fm {
-                print!("m{:x}[{:x}, {:x}] ", address, em, fm);
+                println!("memory @{}: {} | {} ", address, em, fm);
             }
         }
         println!("");
@@ -150,7 +150,7 @@ fn run_processor_test(filename: String, instruction: u8) {
         tests_total += 1;
         let mut state = json_to_state(&value["initial"]);
         let mut final_state = json_to_state(&value["final"]);
-        // println!("Start state: {:#04x}", state.pc());
+        // println!("Start state: {}", state.pc());
 
         match state.execute_next_instruction() {
             Ok(_) => (),
@@ -179,6 +179,14 @@ fn run_processor_test(filename: String, instruction: u8) {
 
             println!("Initial memory");
             for memory in value["initial"]["ram"].as_array().unwrap().iter() {
+                let memory = memory.as_array().unwrap();
+                let address = memory.get(0).unwrap().as_u64().unwrap() as u16;
+                let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
+                println!("{} => {}", address, value);
+            }
+
+            println!("Final memory");
+            for memory in value["final"]["ram"].as_array().unwrap().iter() {
                 let memory = memory.as_array().unwrap();
                 let address = memory.get(0).unwrap().as_u64().unwrap() as u16;
                 let value = memory.get(1).unwrap().as_u64().unwrap() as u8;

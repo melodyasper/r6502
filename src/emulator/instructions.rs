@@ -315,6 +315,7 @@ impl From<u8> for Instruction {
 
 
 
+#[derive(Debug)]
 pub struct MemoryPair {
     pub address: u16,
     pub value: u8,
@@ -331,9 +332,9 @@ impl Instruction {
             }
             Some(AddressingMode::DirectZeroPage) => {
                 let address = *base_address;
-                let value = state.read(address)?;
+                let address = state.read(address)? as u16;
                 *base_address = (*base_address).wrapping_add(1);
-                let value = state.read(value as u16)?;
+                let value = state.read(address as u16)?;
                 Some(MemoryPair { address , value})
             }
             Some(AddressingMode::DirectZeroPageX) => {
@@ -830,11 +831,12 @@ impl Instruction {
                     },
                     _ => {
                         let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
+                        println!("MemoryPair@ROL: {:?}", memory_pair);
                         let address = memory_pair.address;
-                        let value = memory_pair.value;
+                        let value: u8 = memory_pair.value;
                         let input = value;
                         let output = input.rotate_left(1);
-                        state.write(address, value)?;
+                        state.write(address, output)?;
                         (input, output)
 
                     }
@@ -861,7 +863,7 @@ impl Instruction {
                         let value = memory_pair.value;
                         let input = value;
                         let output = input.rotate_right(1);
-                        state.write(address, value)?;
+                        state.write(address, output)?;
                         (input, output)
 
                     }

@@ -835,7 +835,10 @@ impl Instruction {
                         let address = memory_pair.address;
                         let value: u8 = memory_pair.value;
                         let input = value;
-                        let output = input.rotate_left(1);
+                        let output = match state.p.carry_flag() {
+                            false => input << 1,
+                            true =>  (input << 1) | 0x1,
+                        };
                         state.write(address, output)?;
                         (input, output)
 
@@ -862,7 +865,10 @@ impl Instruction {
                         let address = memory_pair.address;
                         let value = memory_pair.value;
                         let input = value;
-                        let output = input.rotate_right(1);
+                        let output = match state.p.carry_flag() {
+                            false => input >> 1,
+                            true =>  (input >> 1) | 0x1,
+                        };
                         state.write(address, output)?;
                         (input, output)
 

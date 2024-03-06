@@ -56,7 +56,7 @@ impl std::fmt::Display for SystemFlags {
 // Impl blocks can be added to flags types
 impl SystemFlags {
     pub fn as_u8(&self) -> u8 {
-        self.bits() as u8
+        self.bits()
     }
 }
 impl From<u8> for SystemFlags {
@@ -82,8 +82,7 @@ pub struct SystemState {
 
 impl Default for SystemState {
     fn default() -> Self {
-        let mut memory: Vec<u8> = Vec::new();
-        memory.resize(128_000, 0x00);
+        let memory: Vec<u8> = vec![0; 0xF000];
         Self {
             running: Default::default(),
             pc: Default::default(),
@@ -153,7 +152,7 @@ impl SystemState {
             Err(message) => {
                 println!("{}", message);
                 self.running = false;
-                return Err(Some(instruction));
+                Err(Some(instruction))
             },
         }
         

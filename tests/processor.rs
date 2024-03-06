@@ -1,4 +1,3 @@
-use bitflags::Flags;
 use r6502::emulator::instructions::OpCode;
 use r6502::emulator::state::{SystemFlags, SystemState};
 
@@ -11,17 +10,21 @@ use std::fs::File;
 use std::io::Read;
 
 fn json_to_state(state_map: &Value) -> SystemState {
-    let mut state = SystemState::default();
-    state.pc = state_map["pc"].as_u64().unwrap() as u16;
-    state.a = state_map["a"].as_u64().unwrap() as u8;
-    state.x = state_map["x"].as_u64().unwrap() as u8;
-    state.y = state_map["y"].as_u64().unwrap() as u8;
-    state.s = state_map["s"].as_u64().unwrap() as u8;
-    state.p = SystemFlags::from_bits_retain(state_map["p"].as_u64().unwrap() as u8);
+    let mut state = SystemState {
+        pc: state_map["pc"].as_u64().unwrap() as u16,
+        a: state_map["a"].as_u64().unwrap() as u8,
+        x: state_map["x"].as_u64().unwrap() as u8,
+        y: state_map["y"].as_u64().unwrap() as u8,
+        s: state_map["s"].as_u64().unwrap() as u8,
+        p: SystemFlags::from_bits_retain(state_map["p"].as_u64().unwrap() as u8),
+        m: vec![0; 0xF000],
+        running: false,
+    };
+
 
     for memory in state_map["ram"].as_array().unwrap().iter() {
         let memory = memory.as_array().unwrap();
-        let address = memory.get(0).unwrap().as_u64().unwrap() as u16;
+        let address = memory.first().unwrap().as_u64().unwrap() as u16;
         let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
         state.write(address, value).unwrap();
     }
@@ -98,7 +101,7 @@ fn debug_state_comparison(
     print_me: bool,
 ) -> bool {
     let result = state_expected == state;
-    if result == false && print_me == true {
+    if !result && print_me {
         let mut table = Table::new(vec![("final state", &*state), ("expected state", &*state_expected)]);
         table.with(Style::modern());
         println!("{}", table);
@@ -107,7 +110,7 @@ fn debug_state_comparison(
             .m
             .clone()
             .into_iter()
-            .zip(state.m.clone().into_iter())
+            .zip(state.m.clone())
             .enumerate()
             .filter(|(_, (a, b))| a != b)
             .map(
@@ -121,7 +124,7 @@ fn debug_state_comparison(
         
         table.with(ColumnNames::new(["Memory Location", "Expected", "Final"]));
         println!("{}", table);
-        println!("");
+        println!();
     }
 
     result
@@ -138,7 +141,7 @@ fn run_processor_test(filename: String, instruction: u8) {
     let mut unknown_instructions: Vec<_> = Vec::new();
     let mut unfinished_instructions: Vec<_> = Vec::new();
     // TODO: Remove take, this is to speed up testing.
-    for value in v.as_array().unwrap().into_iter().take(100) {
+    for value in v.as_array().unwrap().iter().take(100) {
         tests_total += 1;
         let mut state = json_to_state(&value["initial"]);
         let mut final_state = json_to_state(&value["final"]);
@@ -148,13 +151,13 @@ fn run_processor_test(filename: String, instruction: u8) {
             Ok(_) => (),
             Err(Some(instruction)) => match instruction.opcode {
                 OpCode::UnknownInstruction(ibyte) => {
-                    if unknown_instructions.contains(&ibyte) == false {
+                    if !unknown_instructions.contains(&ibyte) {
                         unknown_instructions.push(ibyte);
                     }
                 }
                 OpCode::BadInstruction(_) => (),
                 _ => {
-                    if unfinished_instructions.contains(&instruction) == false {
+                    if !unfinished_instructions.contains(&instruction) {
                         unfinished_instructions.push(instruction);
                     }
                 }
@@ -184,68 +187,68 @@ fn run_processor_test(filename: String, instruction: u8) {
 
 #[test]
 fn instruction_0x0_not_valid() {
-    run_processor_test("external/ProcessorTests/6502/v1/00.json".to_owned(), 0x0_)
+    run_processor_test("external/ProcessorTests/6502/v1/00.json".to_owned(), 0x0)
 }
 
 #[test]
 fn instruction_0x1_ora_in_indirectzeropagex_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/01.json".to_owned(), 0x1_)
+    run_processor_test("external/ProcessorTests/6502/v1/01.json".to_owned(), 0x1)
 }
 #[test]
 fn instruction_0x2_asl_in_immediate_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/02.json".to_owned(), 0x2_)
+    run_processor_test("external/ProcessorTests/6502/v1/02.json".to_owned(), 0x2)
 }
 #[test]
 fn instruction_0x3_not_valid() {
-    run_processor_test("external/ProcessorTests/6502/v1/03.json".to_owned(), 0x3_)
+    run_processor_test("external/ProcessorTests/6502/v1/03.json".to_owned(), 0x3)
 }
 #[test]
 fn instruction_0x4_not_valid() {
-    run_processor_test("external/ProcessorTests/6502/v1/04.json".to_owned(), 0x4_)
+    run_processor_test("external/ProcessorTests/6502/v1/04.json".to_owned(), 0x4)
 }
 #[test]
 fn instruction_0x5_ora_in_directzeropage_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/05.json".to_owned(), 0x5_)
+    run_processor_test("external/ProcessorTests/6502/v1/05.json".to_owned(), 0x5)
 }
 #[test]
 fn instruction_0x6_asl_in_directzeropage_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/06.json".to_owned(), 0x6_)
+    run_processor_test("external/ProcessorTests/6502/v1/06.json".to_owned(), 0x6)
 }
 #[test]
 fn instruction_0x7_not_valid() {
-    run_processor_test("external/ProcessorTests/6502/v1/07.json".to_owned(), 0x7_)
+    run_processor_test("external/ProcessorTests/6502/v1/07.json".to_owned(), 0x7)
 }
 #[test]
 fn instruction_0x8_php_with_no_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/08.json".to_owned(), 0x8_)
+    run_processor_test("external/ProcessorTests/6502/v1/08.json".to_owned(), 0x8)
 }
 #[test]
 fn instruction_0x9_ora_in_immediate_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/09.json".to_owned(), 0x9_)
+    run_processor_test("external/ProcessorTests/6502/v1/09.json".to_owned(), 0x9)
 }
 #[test]
 fn instruction_0xa_asl_in_accumulator_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/0a.json".to_owned(), 0xa_)
+    run_processor_test("external/ProcessorTests/6502/v1/0a.json".to_owned(), 0xa)
 }
 #[test]
 fn instruction_0xb_not_valid() {
-    run_processor_test("external/ProcessorTests/6502/v1/0b.json".to_owned(), 0xb_)
+    run_processor_test("external/ProcessorTests/6502/v1/0b.json".to_owned(), 0xb)
 }
 #[test]
 fn instruction_0xc_not_valid() {
-    run_processor_test("external/ProcessorTests/6502/v1/0c.json".to_owned(), 0xc_)
+    run_processor_test("external/ProcessorTests/6502/v1/0c.json".to_owned(), 0xc)
 }
 #[test]
 fn instruction_0xd_ora_in_directabsolute_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/0d.json".to_owned(), 0xd_)
+    run_processor_test("external/ProcessorTests/6502/v1/0d.json".to_owned(), 0xd)
 }
 #[test]
 fn instruction_0xe_asl_in_directabsolute_mode() {
-    run_processor_test("external/ProcessorTests/6502/v1/0e.json".to_owned(), 0xe_)
+    run_processor_test("external/ProcessorTests/6502/v1/0e.json".to_owned(), 0xe)
 }
 #[test]
 fn instruction_0xf_not_valid() {
-    run_processor_test("external/ProcessorTests/6502/v1/0f.json".to_owned(), 0xf_)
+    run_processor_test("external/ProcessorTests/6502/v1/0f.json".to_owned(), 0xf)
 }
 #[test]
 fn instruction_0x10_bpl_in_relative_mode() {

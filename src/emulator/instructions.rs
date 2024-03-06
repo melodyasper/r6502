@@ -322,7 +322,7 @@ pub struct MemoryPair {
 }
 
 impl Instruction {
-    pub fn execute<'a>(&self, state: &mut SystemState, base_address: &mut u16) -> Result<()> {
+    pub fn execute(&self, state: &mut SystemState, base_address: &mut u16) -> Result<()> {
         let memory_pair = match self.mode {
             Some(AddressingMode::Immediate | AddressingMode::Relative) => {
                 let address = *base_address;
@@ -529,7 +529,7 @@ impl Instruction {
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
-                            argument.abs() as u16
+                            argument.unsigned_abs() as u16
                         };
                         *base_address = (*base_address).overflowing_sub(temp).0;
                     }

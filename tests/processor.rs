@@ -1,5 +1,6 @@
+use bitflags::Flags;
 use r6502::emulator::instructions::OpCode;
-use r6502::emulator::state::{StatusFlags, SystemState};
+use r6502::emulator::state::{SystemFlags, SystemState};
 
 use serde_json::Value;
 use tabled::builder::Builder;
@@ -16,7 +17,7 @@ fn json_to_state(state_map: &Value) -> SystemState {
     state.x = state_map["x"].as_u64().unwrap() as u8;
     state.y = state_map["y"].as_u64().unwrap() as u8;
     state.s = state_map["s"].as_u64().unwrap() as u8;
-    state.p.value = state_map["p"].as_u64().unwrap() as u8;
+    state.p = SystemFlags::from_bits_retain(state_map["p"].as_u64().unwrap() as u8);
 
     for memory in state_map["ram"].as_array().unwrap().iter() {
         let memory = memory.as_array().unwrap();
@@ -41,7 +42,7 @@ fn comprehensive_breakdown(state: &mut SystemState, state_final: &mut SystemStat
     println!("\tregisters: ");
     println!(
         "\tpc: {} x: {} y: {} a: {} p: {}",
-        state.pc, state.x, state.y, state.a, state.p.value
+        state.pc, state.x, state.y, state.a, state.p.bits()
     );
     match state.execute_next_instruction() {
         Ok(ref instruction) => {
@@ -84,11 +85,11 @@ fn comprehensive_breakdown(state: &mut SystemState, state_final: &mut SystemStat
 
     println!(
         "\tfinal pc    : {} x: {} y: {} a: {} p: {}",
-        state.pc, state.x, state.y, state.a, state.p.value
+        state.pc, state.x, state.y, state.a, state.p.bits()
     );
     println!(
         "\texpected pc: {} x: {} y: {} a: {} p: {}",
-        state_final.pc, state_final.x, state_final.y, state_final.a, state_final.p.value
+        state_final.pc, state_final.x, state_final.y, state_final.a, state_final.p.bits()
     );
 }
 fn debug_state_comparison(
@@ -96,8 +97,6 @@ fn debug_state_comparison(
     state: &mut SystemState,
     print_me: bool,
 ) -> bool {
-    state_expected.p = StatusFlags { value: 0 };
-    state.p = StatusFlags { value: 0 };
     let result = state_expected == state;
     if result == false && print_me == true {
         let mut table = Table::new(vec![("final state", &*state), ("expected state", &*state_expected)]);

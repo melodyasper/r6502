@@ -1,4 +1,4 @@
-use r6502::emulator::state::{SystemState, StatusFlags};
+use r6502::emulator::state::{SystemState, SystemFlags};
 use r6502::emulator::display::Renderer;
 use std::thread;
 use std::sync::{Arc, Mutex};
@@ -28,7 +28,7 @@ fn main() {
         x: 0,
         y: 0,
         s: 0,
-        p: StatusFlags::new(0),
+        p: SystemFlags::from(0),
     }));
 
 

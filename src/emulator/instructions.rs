@@ -1,4 +1,4 @@
-use crate::emulator::state::{EmulatorError, SystemState};
+use crate::emulator::state::{EmulatorError, SystemState, SystemFlags};
 use anyhow::{anyhow, Result};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -308,7 +308,7 @@ impl From<u8> for Instruction {
 
                 Instruction{ opcode: instruction, mode: Some(mode) }
             }
-            _ => return Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
+            _ => Instruction {opcode: OpCode::UnknownInstruction(value), mode: None},
         }
     }
 }
@@ -326,7 +326,7 @@ impl Instruction {
         let memory_pair = match self.mode {
             Some(AddressingMode::Immediate | AddressingMode::Relative) => {
                 let address = *base_address;
-                let value = state.read(address)?.into();
+                let value = state.read(address)?;
                 *base_address = (*base_address).wrapping_add(1);
                 Some(MemoryPair { address , value})
             }
@@ -334,7 +334,7 @@ impl Instruction {
                 let address = *base_address;
                 let address = state.read(address)? as u16;
                 *base_address = (*base_address).wrapping_add(1);
-                let value = state.read(address as u16)?;
+                let value = state.read(address)?;
                 Some(MemoryPair { address , value})
             }
             Some(AddressingMode::DirectZeroPageX) => {
@@ -353,7 +353,7 @@ impl Instruction {
                 *base_address = (*base_address).wrapping_add(1);
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                 let value = state.read(address)?;
-                Some(MemoryPair { address: address.into(), value })
+                Some(MemoryPair { address, value })
             },
             Some(AddressingMode::DirectAbsoluteX) => {
                 let low_byte = state.read(*base_address)?;
@@ -363,7 +363,7 @@ impl Instruction {
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                 let address = address.overflowing_add(state.x.into()).0;
                 let value = state.read(address)?;
-                Some(MemoryPair { address: address.into(), value })
+                Some(MemoryPair { address, value })
             }
             Some(AddressingMode::DirectAbsoluteY) => {
                 let low_byte = state.read(*base_address)?;
@@ -373,18 +373,18 @@ impl Instruction {
                 let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
                 let address = address.overflowing_add(state.y.into()).0;
                 let value = state.read(address)?;
-                Some(MemoryPair { address: address.into(), value })
+                Some(MemoryPair { address, value })
             },
             Some(AddressingMode::IndirectZeroPageX) => {
                 
-                let zero_page_address =(state.read(*base_address)? as u8).overflowing_add(state.x).0.into();
+                let zero_page_address =(state.read(*base_address)?).overflowing_add(state.x).0.into();
                 *base_address = (*base_address).wrapping_add(1);
                 let low_byte = state.read(zero_page_address)?;
                 let high_byte = state.read((zero_page_address as u8).wrapping_add(1) as u16)?;
                 
                 let address = ((high_byte as u16) << 8) + low_byte as u16;
                 let value = state.read(address)?;
-                Some(MemoryPair { address: address.into(), value })
+                Some(MemoryPair { address, value })
             }
             Some(AddressingMode::Accumulator) => {
                 None
@@ -398,7 +398,7 @@ impl Instruction {
                 //the result being the high order eight bits of the effective address.
                 let next_address = state.read(*base_address)?;
                 *base_address = (*base_address).wrapping_add(1);
-                let (low_byte, overflow) = (state.read(next_address as u16)? as u8).overflowing_add(state.y);
+                let (low_byte, overflow) = (state.read(next_address as u16)?).overflowing_add(state.y);
                 let overflow = match overflow {
                     true => 1u8,
                     false => 0u8,
@@ -406,7 +406,7 @@ impl Instruction {
                 let high_byte = state.read(next_address.wrapping_add(1) as u16)?.overflowing_add(overflow).0;
                 let address = ((high_byte as u16) << 8) + low_byte as u16;
                 let value = state.read(address)?;
-                Some(MemoryPair { address: address.into(), value })
+                Some(MemoryPair { address, value })
             }
             None => None,
         };
@@ -416,26 +416,24 @@ impl Instruction {
                 let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value;
 
                 // TODO: Decimal mode
-                let carry_flag: u16 = match state.p.carry_flag() {
+                let carry_flag: u16 = match state.p.contains(SystemFlags::carry) {
                     true => 1,
                     false => 0,
                 };
                 let result: u16 = state.a as u16 + argument as u16 + carry_flag;
-                if result > u8::MAX.into() {
-                    state.p.set_carry_flag(true);
-                    state.p.set_overflow_flag(true);
-                }
+                state.p.set(SystemFlags::carry, result > u8::MAX.into());
+                // TODO: bad logic
+                state.p.set(SystemFlags::overflow, result > u8::MAX.into());
+                
                 state.a = result as u8;
-                state.p.set_zero_flag(state.a == 0);
+                state.p.set(SystemFlags::zero, state.a == 0);
             },
             OpCode::AND => {
                 let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value;
 
-                state.a = argument & state.a;
-                state.p.set_zero_flag(state.a == 0);
-                state
-                    .p
-                    .set_negative_flag((state.a & 0b10000000) == 0b10000000)
+                state.a &= argument;
+                state.p.set(SystemFlags::zero, state.a == 0);
+                state.p.set(SystemFlags::negative, (state.a & 0b10000000) == 0b10000000);
             },
             OpCode::ASL => {
                 let (value, overflow) = match self.mode {
@@ -454,14 +452,13 @@ impl Instruction {
                     }
                 };
 
-                state.p.set_carry_flag(overflow);
-                state.p.set_zero_flag(value == 0);
-                state
-                    .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::carry, overflow);
+                state.p.set(SystemFlags::zero, value == 0);
+                state.p.set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
             },
             OpCode::BCC => {
-                if state.p.carry_flag() == false {
+                // TODO: Evaluate this.
+                if !state.p.contains(SystemFlags::carry) {
                     let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -471,14 +468,15 @@ impl Instruction {
                         let temp: u16 = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
-                            argument.abs() as u16
+                            argument.unsigned_abs() as u16
                         };
                         *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
             OpCode::BCS => {
-                if state.p.carry_flag() {
+                // TODO: Evaluate this.
+                if !state.p.contains(SystemFlags::carry) {
                     let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -488,14 +486,15 @@ impl Instruction {
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
-                            argument.abs() as u16
+                            argument.unsigned_abs() as u16
                         };
                         *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
             OpCode::BEQ => {
-                if state.p.zero_flag() {
+                // TODO: Evaluate this.
+                if state.p.contains(SystemFlags::zero) {
                     let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -505,7 +504,7 @@ impl Instruction {
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
-                            argument.abs() as u16
+                            argument.unsigned_abs() as u16
                         };
                         *base_address = (*base_address).overflowing_sub(temp).0;
                     }
@@ -514,14 +513,13 @@ impl Instruction {
             OpCode::BIT => {
                 let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value;
                 let result = argument & state.a;
-                state.p.set_zero_flag(result == 0);
-                state.p.set_overflow_flag(argument & 0b01000000  == 0b01000000);
-                state
-                    .p
-                    .set_negative_flag((argument & 0b10000000) == 0b10000000)
+                state.p.set(SystemFlags::zero, result == 0);
+                state.p.set(SystemFlags::overflow, (argument & 0b01000000)  == 0b01000000);
+                state.p.set(SystemFlags::negative, (argument & 0b10000000) == 0b10000000);
             },
             OpCode::BMI => {
-                if state.p.negative_flag() {
+                // TODO: Evaluate this.
+                if state.p.contains(SystemFlags::negative) {
                     let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -538,7 +536,8 @@ impl Instruction {
                 }
             },
             OpCode::BNE => {
-                if state.p.zero_flag() == false {
+                // TODO: Evaluate this.
+                if !state.p.contains(SystemFlags::zero) {
                     let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -548,14 +547,15 @@ impl Instruction {
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
-                            argument.abs() as u16
+                            argument.unsigned_abs() as u16
                         };
                         *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
             OpCode::BPL => {
-                if state.p.negative_flag() == false {
+                // TODO: Evaluate this.
+                if !state.p.contains(SystemFlags::negative) {
                     let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -565,7 +565,7 @@ impl Instruction {
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
-                            argument.abs() as u16
+                            argument.unsigned_abs() as u16
                         };
                         *base_address = (*base_address).overflowing_sub(temp).0;
                     }
@@ -580,14 +580,14 @@ impl Instruction {
                 state.s = state.s.wrapping_sub(1);
                 state.write(state.s.into(), low_byte)?;
                 state.s = state.s.wrapping_sub(1);
-                state.write(state.s.into(), state.p.value)?;
+                state.write(state.s.into(), state.p.bits())?;
                 state.s = state.s.wrapping_sub(1);
                 // We don't mutate PC, we mutate base address which mutates PC
                 *base_address = argument;
 
             }
             OpCode::BVC => {
-                if state.p.overflow_flag() == false {
+                if !state.p.contains(SystemFlags::overflow) {
                     let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -597,14 +597,14 @@ impl Instruction {
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
-                            argument.abs() as u16
+                            argument.unsigned_abs() as u16
                         };
                         *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
             OpCode::BVS => {
-                if state.p.overflow_flag() {
+                if state.p.contains(SystemFlags::overflow) {
                     let argument = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
                         // We don't mutate PC, we mutate base address which mutates PC
@@ -614,54 +614,54 @@ impl Instruction {
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
-                            argument.abs() as u16
+                            argument.unsigned_abs() as u16
                         };
                         *base_address = (*base_address).overflowing_sub(temp).0;
                     }
                 }
             },
             OpCode::CLC => {
-                state.p.set_carry_flag(false);
+                state.p.remove(SystemFlags::carry);
             },
             OpCode::CLD => {
-                state.p.set_decimal_flag(false);
+                state.p.remove(SystemFlags::decimal);
             },
             OpCode::CLI => {
-                state.p.set_interrupt_disable_flag(false);
+                state.p.remove(SystemFlags::interrupt_disable);
             },
             OpCode::CLV => {
-                state.p.set_overflow_flag(false);
+                state.p.remove(SystemFlags::overflow);
             },
             OpCode::CMP => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
                 let value = memory_pair.value;
                 let result = state.a.overflowing_sub(value).0;
-                state.p.set_zero_flag(result == 0);
-                state.p.set_carry_flag(value <= state.a);
+                state.p.set(SystemFlags::zero, result == 0);
+                state.p.set(SystemFlags::carry, value <= state.a);
                 state
                     .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000)
+                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000)
             },
             OpCode::CPX => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
                 let value = memory_pair.value;
                 let result = state.x.overflowing_sub(value).0;
-                state.p.set_zero_flag(result == 0);
-                state.p.set_carry_flag(state.x >= value);
+                state.p.set(SystemFlags::zero, result == 0);
+                state.p.set(SystemFlags::carry, state.x >= value);
                 state
                     .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000)
+                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000)
             },
             OpCode::CPY => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
                 let value = memory_pair.value;
 
                 let result = state.y.overflowing_sub(value).0;
-                state.p.set_zero_flag(result == 0);
-                state.p.set_carry_flag(state.y >= value);
+                state.p.set(SystemFlags::zero, result == 0);
+                state.p.set(SystemFlags::carry, state.y >= value);
                 state
                     .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000)
+                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000)
             },
             OpCode::DEC => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
@@ -671,34 +671,34 @@ impl Instruction {
                 let value = value.wrapping_sub(1);
                 state.write(address, value)?;
 
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::zero, value == 0);
                 state
                     .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
             },
             OpCode::DEX => {
                 state.y = state.x.overflowing_sub(1).0;
-                state.p.set_zero_flag(state.x == 0);
+                state.p.set(SystemFlags::zero, state.x == 0);
                 state
                     .p
-                    .set_negative_flag((state.x & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (state.x & 0b10000000) == 0b10000000);
             },
             OpCode::DEY => {
                 state.y = state.x.overflowing_sub(1).0;
-                state.p.set_zero_flag(state.y == 0);
+                state.p.set(SystemFlags::zero, state.y == 0);
                 state
                     .p
-                    .set_negative_flag((state.y & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (state.y & 0b10000000) == 0b10000000);
             },
             OpCode::EOR => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
                 let _ = memory_pair.address;
                 let value = memory_pair.value;
-                state.a = state.a ^ value;
-                state.p.set_zero_flag(state.a == 0);
+                state.a ^= value;
+                state.p.set(SystemFlags::zero, state.a == 0);
                 state
                     .p
-                    .set_negative_flag((state.a & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (state.a & 0b10000000) == 0b10000000);
             },
             OpCode::INC => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
@@ -708,26 +708,26 @@ impl Instruction {
 
                 state.write(address, value)?;
 
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::zero, value == 0);
                 state
                     .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
             },
             OpCode::INX => {
                 let value = state.x.wrapping_add(1);
 
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::zero, value == 0);
                 state
                     .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
             },
             OpCode::INY => {
                 let value = state.y.wrapping_add(1);
 
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::zero, value == 0);
                 state
                     .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
             },
             OpCode::JMP => { // this should be 4c
                 let address = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.address;
@@ -750,26 +750,26 @@ impl Instruction {
             OpCode::LDA => {
                 let value = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value;
                 state.a = value as u8;
-                state.p.set_zero_flag(state.a == 0);
+                state.p.set(SystemFlags::zero, state.a == 0);
                 state
                     .p
-                    .set_negative_flag((state.a & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (state.a & 0b10000000) == 0b10000000);
             },
             OpCode::LDX => {
                 let value = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value;
                 state.x = value as u8;
-                state.p.set_zero_flag(state.x == 0);
+                state.p.set(SystemFlags::zero, state.x == 0);
                 state
                     .p
-                    .set_negative_flag((state.x & 0b01000000) == 0b01000000);
+                    .set(SystemFlags::negative, (state.x & 0b01000000) == 0b01000000);
             },
             OpCode::LDY => {
                 let value = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value;
                 state.y = value as u8;
-                state.p.set_zero_flag(state.y == 0);
+                state.p.set(SystemFlags::zero, state.y == 0);
                 state
                     .p
-                    .set_negative_flag((state.y & 0b01000000) == 0b01000000);
+                    .set(SystemFlags::negative, (state.y & 0b01000000) == 0b01000000);
             },
             OpCode::LSR => {
                 let (value, overflow) = match self.mode { 
@@ -788,21 +788,21 @@ impl Instruction {
                         out
                     }
                 };
-                state.p.set_carry_flag(overflow);
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::carry, overflow);
+                state.p.set(SystemFlags::zero, value == 0);
                 state
                     .p
-                    .set_negative_flag((value & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
             },
             OpCode::NOP => (),
             OpCode::ORA => {
                 let value = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.value;
-                state.a = value | state.a;
+                state.a |= value;
 
-                state.p.set_zero_flag(state.a == 0);
+                state.p.set(SystemFlags::zero, state.a == 0);
                 state
                     .p
-                    .set_negative_flag((state.a & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (state.a & 0b10000000) == 0b10000000);
             },
             OpCode::PHA => {
                 state.write(0x100 + state.s as u16, state.a)?;
@@ -810,7 +810,7 @@ impl Instruction {
                 
             }
             OpCode::PHP => {
-                state.write(0x100 + state.s as u16, state.p.value)?;
+                state.write(0x100 + state.s as u16, state.p.bits())?;
                 state.s = state.s.wrapping_sub(1);
             }
             OpCode::PLA => {
@@ -819,13 +819,16 @@ impl Instruction {
             }
             OpCode::PLP => {
                 state.s = state.s.wrapping_add(1);
-                state.p.value = state.read(0x100 + state.s as u16)?;
+                state.p = SystemFlags::from_bits_retain(state.read(0x100 + state.s as u16)?);
             }
             OpCode::ROL => {
                 let (input, output) = match self.mode {
                     Some(AddressingMode::Accumulator) => {
                         let input = state.a;
-                        let output = input.rotate_left(1);
+                        let output = match state.p.contains(SystemFlags::carry) {
+                            false => input << 1,
+                            true =>  (input << 1) | 0x1,
+                        };
                         state.a = output;
                         (input, output)
                     },
@@ -835,7 +838,7 @@ impl Instruction {
                         let address = memory_pair.address;
                         let value: u8 = memory_pair.value;
                         let input = value;
-                        let output = match state.p.carry_flag() {
+                        let output = match state.p.contains(SystemFlags::carry) {
                             false => input << 1,
                             true =>  (input << 1) | 0x1,
                         };
@@ -845,18 +848,21 @@ impl Instruction {
                     }
                 };
 
-                state.p.set_carry_flag((input & 0b10000000) == 0b10000000);
-                state.p.set_zero_flag(output == 0);
+                state.p.set(SystemFlags::carry, (input & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::zero, output == 0);
                 state
                     .p
-                    .set_negative_flag((output & 0b01000000) == 0b01000000);
+                    .set(SystemFlags::negative, (output & 0b01000000) == 0b01000000);
             }
             
             OpCode::ROR => {
                 let (input, output) = match self.mode {
                     Some(AddressingMode::Accumulator) => {
                         let input = state.a;
-                        let output = input.rotate_left(1);
+                        let output = match state.p.contains(SystemFlags::carry) {
+                            false => input >> 1,
+                            true =>  (input >> 1) | (0x1 << 7),
+                        };
                         state.a = output;
                         (input, output)
                     },
@@ -865,7 +871,7 @@ impl Instruction {
                         let address = memory_pair.address;
                         let value = memory_pair.value;
                         let input = value;
-                        let output = match state.p.carry_flag() {
+                        let output = match state.p.contains(SystemFlags::carry) {
                             false => input >> 1,
                             true =>  (input >> 1) | 0x1,
                         };
@@ -875,9 +881,9 @@ impl Instruction {
                     }
                 };
 
-                state.p.set_negative_flag(state.p.carry_flag()) ;
-                state.p.set_carry_flag((input & 0b00000001) == 0b00000001);
-                state.p.set_zero_flag(output == 0);
+                state.p.set(SystemFlags::negative, state.p.contains(SystemFlags::carry)) ;
+                state.p.set(SystemFlags::carry, (input & 0b00000001) == 0b00000001);
+                state.p.set(SystemFlags::zero, output == 0);
             }
             OpCode::RTI => {
 
@@ -888,7 +894,7 @@ impl Instruction {
                 state.s = state.s.wrapping_add(1);
                 let r3 = state.read(0x100 + state.s as u16)?;
                 
-                state.p.value = r1;
+                state.p =  SystemFlags::from_bits_retain(r1);
                 *base_address = (r2 as u16).overflowing_add((r3 as u16).overflowing_shl(8).0).0;
             }
             OpCode::RTS => {
@@ -900,47 +906,55 @@ impl Instruction {
                 *base_address = (r1 as u16).overflowing_add((r2 as u16).overflowing_shl(8).0).0;
             }
             OpCode::SEI => {
-                state.p.set_interrupt_disable_flag(true);
+                state.p.insert(SystemFlags::interrupt_disable);
             },
             OpCode::STA => {
                 let address = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.address;
-                let _ = state.write(address, state.a)?;
+                state.write(address, state.a)?;
+            },
+            OpCode::STX => {
+                let address = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.address;
+                state.write(address, state.x)?;
+            },
+            OpCode::STY => {
+                let address = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?.address;
+                state.write(address, state.y)?;
             },
             OpCode::TAX => {
                 let value = state.a;
                 state.x = value;
-                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TAY => {
                 let value = state.a;
                 state.y = value;
-                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TSX => {
                 let value = state.s;
                 state.x = value;
-                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TXA => {
                 let value = state.x;
                 state.a = value;
-                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TXS => {
                 let value = state.x;
                 state.s = value;
-                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::zero, value == 0);
             },
             OpCode::TYA => {
                 let value = state.y;
                 state.a = value;
-                state.p.set_carry_flag((value & 0b10000000) == 0b10000000);
-                state.p.set_zero_flag(value == 0);
+                state.p.set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::zero, value == 0);
             },
             
             _ => return Err(anyhow!(EmulatorError::UnimplementedInstruction)),

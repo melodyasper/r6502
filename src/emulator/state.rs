@@ -1,45 +1,68 @@
 use crate::emulator::instructions::{Instruction, OpCode};
-use paste::paste;
 use anyhow::{Result, anyhow};
 use tabled::Tabled;
+use bitflags::bitflags;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct StatusFlags {
-    pub value: u8,
-}
 
-macro_rules! create_status_flag {
-    ($name:ident, $value:expr) => {
-        paste! {
-            pub fn [< $name _flag >] (&self) -> bool {
-                (self.value & $value) != 0
-            }
-            pub fn [<set_ $name _flag >](&mut self, set: bool) {
-                if set {
-                    self.value |= $value;
-                } else {
-                    self.value &= !$value;
-                }
-            }
-        }
-    };
-}
-
-impl StatusFlags {
-    pub fn new(value: u8) -> Self {
-        StatusFlags { value }
+bitflags! {
+    #[repr(transparent)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Tabled)]
+    pub struct SystemFlags: u8 {
+        const negative = 0b10000000;
+        const overflow = 0b01000000;
+        const expansion = 0b00100000;
+        const break_command = 0b00010000;
+        const decimal = 0b00001000;
+        const interrupt_disable = 0b00000100;
+        const zero = 0b00000010;
+        const carry = 0b00000001;
     }
+}
 
-    create_status_flag!(negative, 0b10000000);
-    create_status_flag!(overflow, 0b01000000);
-    create_status_flag!(expansion, 0b00100000);
-    create_status_flag!(break_command, 0b00010000);
-    create_status_flag!(decimal, 0b00001000);
-    create_status_flag!(interrupt_disable, 0b00000100);
-    create_status_flag!(zero, 0b00000010);
-    create_status_flag!(carry, 0b00000001);
+impl std::fmt::Display for SystemFlags {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // let value = *self;
+        // if (value & Self::negative) == Self::negative {
+        //     write!(f, "N | ")?;
+        // }
+        // if (value & Self::overflow) == Self::overflow {
+        //     write!(f, "O | ")?;
+        // }
+        // if (value & Self::expansion) == Self::expansion {
+        //     write!(f, "E | ")?;
+        // }
+        // if (value & Self::break_command) == Self::break_command {
+        //     write!(f, "B | ")?;
+        // }
+        // if (value & Self::decimal) == Self::decimal {
+        //     write!(f, "D | ")?;
+        // }
+        // if (value & Self::interrupt_disable) == Self::interrupt_disable {
+        //     write!(f, "I | ")?;
+        // }
+        // if (value & Self::zero) == Self::zero {
+        //     write!(f, "Z | ")?;
+        // }
+        // if (value & Self::carry) == Self::carry {
+        //     write!(f, "C | ")?;
+        // }
+        bitflags::parser::to_writer(self, f)?;
+        Ok(())
+        // write!(f, "]")
+    }
+    
+}
 
-    // You can add more getters and setters for other bits following the pattern above.
+// Impl blocks can be added to flags types
+impl SystemFlags {
+    pub fn as_u8(&self) -> u8 {
+        self.bits() as u8
+    }
+}
+impl From<u8> for SystemFlags {
+    fn from(value: u8) -> Self {
+        Self::from_bits_retain(value)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Tabled)]
@@ -54,8 +77,7 @@ pub struct SystemState {
     // Stack Pointer
     // The processor supports a 256 byte stack located between $0100 and $01FF
     pub s: u8,
-    #[tabled(skip)]
-    pub p: StatusFlags,
+    pub p: SystemFlags,
 }
 
 impl Default for SystemState {
@@ -70,7 +92,7 @@ impl Default for SystemState {
             x: 0,
             y: 0,
             s: 0,
-            p: StatusFlags { value: 0 },
+            p: SystemFlags::default(),
         }
     }
 }
@@ -146,7 +168,7 @@ impl SystemState {
     pub fn pc(&self) -> u16 {
         self.pc
     }
-    pub fn set_pc(&mut self, address: u16) -> () {
+    pub fn set_pc(&mut self, address: u16) {
         self.pc = address
     }
     pub fn write(&mut self, address: u16, value: u8) -> Result<()> {

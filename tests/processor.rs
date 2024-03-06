@@ -1,5 +1,5 @@
 use r6502::emulator::instructions::OpCode;
-use r6502::emulator::state::{SystemFlags, SystemState};
+use r6502::emulator::state::{SystemAction, SystemCycle, SystemFlags, SystemState};
 
 use serde_json::Value;
 use tabled::builder::Builder;
@@ -9,93 +9,52 @@ use tabled::Table;
 use std::fs::File;
 use std::io::Read;
 
-fn json_to_state(state_map: &Value) -> SystemState {
+fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> SystemState {
     let mut state = SystemState {
-        pc: state_map["pc"].as_u64().unwrap() as u16,
-        a: state_map["a"].as_u64().unwrap() as u8,
-        x: state_map["x"].as_u64().unwrap() as u8,
-        y: state_map["y"].as_u64().unwrap() as u8,
-        s: state_map["s"].as_u64().unwrap() as u8,
-        p: SystemFlags::from_bits_retain(state_map["p"].as_u64().unwrap() as u8),
+        pc: state_map[key]["pc"].as_u64().unwrap() as u16,
+        a:  state_map[key]["a"].as_u64().unwrap() as u8,
+        x:  state_map[key]["x"].as_u64().unwrap() as u8,
+        y:  state_map[key]["y"].as_u64().unwrap() as u8,
+        s:  state_map[key]["s"].as_u64().unwrap() as u8,
+        p: SystemFlags::from_bits_retain(state_map[key]["p"].as_u64().unwrap() as u8),
         m: vec![0; 0x10000],
         running: false,
         cycles: Default::default()
     };
 
 
-    for memory in state_map["ram"].as_array().unwrap().iter() {
+    for memory in state_map[key]["ram"].as_array().unwrap().iter() {
         let memory = memory.as_array().unwrap();
         let address = memory.first().unwrap().as_u64().unwrap() as u16;
         let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
         state.write(address, value).unwrap();
     }
+    state.cycles.clear();
+
+    if include_cycles {
+        for cycle in state_map["cycles"].as_array().unwrap().iter() {
+            let memory = cycle.as_array().unwrap();
+            
+            let address = memory.first().unwrap().as_u64().unwrap() as u16;
+            let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
+            let operation = memory.get(2).unwrap().as_str().unwrap();
+            match operation {
+                "read" => {
+                    state.cycles.push(SystemCycle {address, value, action: SystemAction::READ})
+                },
+                "write" => {
+                    state.cycles.push(SystemCycle {address, value, action: SystemAction::WRITE})
+                }
+                unknown => {
+                    panic!("Unknown rules for serializing cycle {}", unknown)
+                }
+            }
+        }
+    } 
 
     state
 }
-fn comprehensive_breakdown(state: &mut SystemState, state_final: &mut SystemState) {
-    let pc = state.pc;
-    let pcr1 = state.read(pc).unwrap();
-    let pcr2 = state.read(pc + 1).unwrap();
-    let pcr3 = state.read(pc + 2).unwrap();
-    let pcr4 = state.read(pc + 3).unwrap();
 
-    println!(
-        "mem @ pc : {} {} {} {}",
-        pcr1, pcr2, pcr3, pcr4
-    );
-    println!("\tregisters: ");
-    println!(
-        "\tpc: {} x: {} y: {} a: {} p: {}",
-        state.pc, state.x, state.y, state.a, state.p.bits()
-    );
-    match state.execute_next_instruction() {
-        Ok(ref instruction) => {
-            println!("OK_INS = {:?}", instruction);
-        }
-        Err(Some(instruction)) => match instruction.opcode {
-            OpCode::UnknownInstruction(ibyte) => {
-                println!("UNKNOWN_INS = {}", ibyte);
-            }
-            OpCode::BadInstruction(ibyte) => {
-                println!("BAD_INS = {}", ibyte);
-            }
-            _ => {
-                println!("UNIMPLEMENTED =  {:?}", instruction);
-            }
-        },
-        Err(None) => {
-            println!("ERR(NONE)");
-        }
-    }
-
-    let pc = state.pc;
-    let pcr1 = state.read(pc).unwrap();
-    let pcr2 = state.read(pc + 1).unwrap();
-    let pcr3 = state.read(pc + 2).unwrap();
-    let pcr4 = state.read(pc + 3).unwrap();
-    println!(
-        "final mem @ pc    : {} {} {} {}",
-        pcr1, pcr2, pcr3, pcr4
-    );
-    let pc = state_final.pc;
-    let pcr1 = state_final.read(pc).unwrap();
-    let pcr2 = state_final.read(pc + 1).unwrap();
-    let pcr3 = state_final.read(pc + 2).unwrap();
-    let pcr4 = state_final.read(pc + 3).unwrap();
-    println!(
-        "expected mem @ pc : {} {} {} {}",
-        pcr1, pcr2, pcr3, pcr4
-    );
-
-    println!(
-        "\tfinal pc    : {} x: {} y: {} a: {} p: {}",
-        state.pc, state.x, state.y, state.a, state.p.bits()
-    );
-    println!(
-        "\texpected pc: {} x: {} y: {} a: {} p: {}",
-        state_final.pc, state_final.x, state_final.y, state_final.a, state_final.p.bits()
-    );
-}
 fn debug_state_comparison(
     state_expected: &mut SystemState,
     state: &mut SystemState,
@@ -122,9 +81,33 @@ fn debug_state_comparison(
 
         let mut table = Builder::from(mvec).build();
         table.with(Style::modern());
-        
         table.with(ColumnNames::new(["Memory Location", "Expected", "Final"]));
         println!("{}", table);
+
+        let mut cycle_comparison: Vec<Vec<String>> = vec![];
+        let mut it_xs = state.cycles.iter();
+        let mut it_ys = state_expected.cycles.iter();
+        loop {
+            match (it_xs.next(), it_ys.next()) {
+                (Some(x), Some(y)) => {
+                    cycle_comparison.push(vec![x.to_string(), y.to_string()])
+                },
+                (Some(x), None) => {
+                    cycle_comparison.push(vec![x.to_string(), "None".to_owned()])
+                },  
+                (None, Some(y)) => {
+                    cycle_comparison.push(vec!["None".to_owned(), y.to_string()])
+                }, 
+                (None, None) => break,
+            }
+        }
+        
+        let mut table = Builder::from(cycle_comparison).build();
+        table.with(Style::modern());
+        table.with(ColumnNames::new(["Final", "Expected"]));
+        println!("{}", table);
+
+
         println!();
     }
 
@@ -144,8 +127,8 @@ fn run_processor_test(filename: String, instruction: u8) {
     // TODO: Remove take, this is to speed up testing.
     for value in v.as_array().unwrap().iter().take(100) {
         tests_total += 1;
-        let mut state = json_to_state(&value["initial"]);
-        let mut final_state = json_to_state(&value["final"]);
+        let mut state = json_to_state(value, "initial", false);
+        let mut final_state = json_to_state(value, "final", true);
         // println!("Start state: {}", state.pc());
 
         match state.execute_next_instruction() {

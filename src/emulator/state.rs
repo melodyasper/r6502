@@ -93,6 +93,13 @@ pub struct SystemCycle {
     pub action: SystemAction,
 }
 
+
+impl std::fmt::Display for SystemCycle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} from {} with value {} ", self.action, self.address, self.value)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Tabled)]
 pub struct SystemState {
     pub running: bool,
@@ -188,6 +195,8 @@ impl SystemState {
     pub fn read(&mut self, address: u16) -> Result<u8> {
         
         let byte = self.m.get(address as usize).ok_or(anyhow!(EmulatorError::MemoryReadError).context(format!("Memory read error at address {}", address)))?;
+        self.cycles.push(SystemCycle {address, value: *byte, action: SystemAction::READ});
+
         // println!("Reading from address {:#04x} yielded byte {:#04x}", address, *byte);
         Ok(*byte)
     }
@@ -208,6 +217,7 @@ impl SystemState {
             self.m.resize(address as usize + 1, 0x00);
         }
         self.m[address as usize] = value;
+        self.cycles.push(SystemCycle {address, value, action: SystemAction::WRITE});
         Ok(())
     }
 }

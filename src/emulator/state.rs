@@ -112,7 +112,7 @@ pub struct SystemState {
 
 impl Default for SystemState {
     fn default() -> Self {
-        let memory: Vec<u8> = vec![0; 0xF000];
+        let memory: Vec<u8> = vec![0; 0x10000];
         Self {
             running: Default::default(),
             pc: Default::default(),

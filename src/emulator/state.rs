@@ -65,12 +65,38 @@ impl From<u8> for SystemFlags {
     }
 }
 
+
+#[derive(Debug, PartialEq, Eq, Tabled)]
+pub enum SystemAction {
+    // You can either read or write a U8 value.
+    READ(u8),
+    WRITE(u8),
+}
+
+impl std::fmt::Display for SystemAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::READ(value) => {
+                write!(f, "READ with result {}", value)
+            },
+            Self::WRITE(value) => {
+                write!(f, "WRITE with value {}", value)
+            }
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Tabled)]
+pub struct SystemCycle {
+    pub pc: u16,
+    pub address: u16,
+    pub action: SystemAction,
+}
+
 #[derive(Debug, PartialEq, Eq, Tabled)]
 pub struct SystemState {
     pub running: bool,
     pub pc: u16,
-    #[tabled(skip)]
-    pub m: Vec<u8>,
     pub a: u8,
     pub x: u8,
     pub y: u8,
@@ -78,6 +104,10 @@ pub struct SystemState {
     // The processor supports a 256 byte stack located between $0100 and $01FF
     pub s: u8,
     pub p: SystemFlags,
+    #[tabled(skip)]
+    pub m: Vec<u8>,
+    #[tabled(skip)]
+    pub cycles: Vec<SystemCycle>,
 }
 
 impl Default for SystemState {
@@ -92,6 +122,7 @@ impl Default for SystemState {
             y: 0,
             s: 0,
             p: SystemFlags::default(),
+            cycles: Default::default(),
         }
     }
 }

@@ -19,6 +19,7 @@ fn json_to_state(state_map: &Value) -> SystemState {
         p: SystemFlags::from_bits_retain(state_map["p"].as_u64().unwrap() as u8),
         m: vec![0; 0xF000],
         running: false,
+        cycles: Default::default()
     };
 
 

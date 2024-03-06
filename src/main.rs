@@ -28,6 +28,7 @@ fn main() {
         y: 0,
         s: 0,
         p: SystemFlags::from(0),
+        cycles: Default::default(),
     }));
 
 

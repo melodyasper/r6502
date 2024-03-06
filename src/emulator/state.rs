@@ -69,18 +69,18 @@ impl From<u8> for SystemFlags {
 #[derive(Debug, PartialEq, Eq, Tabled)]
 pub enum SystemAction {
     // You can either read or write a U8 value.
-    READ(u8),
-    WRITE(u8),
+    READ,
+    WRITE,
 }
 
 impl std::fmt::Display for SystemAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
-            Self::READ(value) => {
-                write!(f, "READ with result {}", value)
+            Self::READ => {
+                write!(f, "read")
             },
-            Self::WRITE(value) => {
-                write!(f, "WRITE with value {}", value)
+            Self::WRITE=> {
+                write!(f, "write")
             }
         }
     }
@@ -88,8 +88,8 @@ impl std::fmt::Display for SystemAction {
 
 #[derive(Debug, PartialEq, Eq, Tabled)]
 pub struct SystemCycle {
-    pub pc: u16,
     pub address: u16,
+    pub value: u8,
     pub action: SystemAction,
 }
 
@@ -150,8 +150,7 @@ impl std::fmt::Display for EmulatorError {
 
 impl SystemState {
     pub fn execute_next_instruction(&mut self) -> Result<Instruction, Option<Instruction>> {
-        let mut location = self.pc();
-        let next_instruction = self.read(location);
+        let next_instruction = self.read(self.pc());
         let ibyte = match next_instruction {
             Ok(ibyte) => ibyte,
             Err(_) => {
@@ -172,12 +171,10 @@ impl SystemState {
             _ => ()
         };
 
-        location = location.wrapping_add(1);
+        self.set_pc(self.pc().wrapping_add(1));
 
-        match instruction.execute(self, &mut location) {
+        match instruction.execute(self) {
             Ok(_) => {
-                // println!("\tpc advanced from {:#08x} to {:#08x}", self.pc, location);
-                self.set_pc(location);
                 Ok(instruction)
             }
             Err(message) => {

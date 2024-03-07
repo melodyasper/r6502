@@ -1916,6 +1916,7 @@ impl Instruction {
                         upper_nibble += 1;
                     }
                     // TODO: negative flag is decided here?
+                    state.p.set(SystemFlags::negative, (upper_nibble & 0b1000) == 0b1000);
                     if upper_nibble > 9 {
                         upper_nibble += 6;
                         upper_nibble &= 0xF;
@@ -1929,13 +1930,13 @@ impl Instruction {
                 else {
                     state.p.set(SystemFlags::carry, result > u8::MAX.into());
                     state.a = result as u8;
+
+                    //The negative flag is set if the accumulator result contains bit 7 on, otherwise the negative flag is reset.
+                    state
+                        .p
+                        .set(SystemFlags::negative, (result & 0b10000000) == 0b10000000);
                 }
 
-
-                //The negative flag is set if the accumulator result contains bit 7 on, otherwise the negative flag is reset.
-                state
-                    .p
-                    .set(SystemFlags::negative, (result & 0b10000000) == 0b10000000);
 
                 //The zero flag is set if the accumulator result is 0, otherwise the zero flag is reset.
                 state.p.set(SystemFlags::zero, state.a == 0);

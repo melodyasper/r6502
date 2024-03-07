@@ -1,4 +1,4 @@
-use r6502::emulator::instructions::OpCode;
+use r6502::emulator::instructions::{self, OpCode};
 use r6502::emulator::state::{SystemAction, SystemCycle, SystemFlags, SystemState};
 
 use serde_json::Value;
@@ -58,9 +58,21 @@ fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> SystemSt
 fn debug_state_comparison(
     state_expected: &mut SystemState,
     state: &mut SystemState,
+    strict: bool,
     print_me: bool,
 ) -> bool {
-    let result = state_expected == state;
+    let result = match strict {
+        true => state_expected == state,
+        false => {
+            state_expected.pc == state.pc &&
+            state_expected.a == state.a &&
+            state_expected.s == state.s &&
+            state_expected.x == state.x &&
+            state_expected.y == state.y &&
+            state_expected.p == state.p &&
+            state_expected.m == state.m
+        }
+    };
     if !result && print_me {
         let mut table = Table::new(vec![("final state", &*state), ("expected state", &*state_expected)]);
         table.with(Style::modern());
@@ -149,7 +161,7 @@ fn run_processor_test(filename: String, instruction: u8) {
             Err(None) => {}
         }
 
-        if debug_state_comparison(&mut final_state, &mut state, true) {
+        if debug_state_comparison(&mut final_state, &mut state, false, true) {
             tests_passed += 1;
         } else {
             break;

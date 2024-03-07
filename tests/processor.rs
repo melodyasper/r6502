@@ -57,33 +57,34 @@ fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> SystemSt
 }
 
 fn debug_state_comparison(
-    state_expected: &mut SystemState,
-    state: &mut SystemState,
+    initial_state: &SystemState,
+    final_state: &SystemState,
+    tested_state: &mut SystemState,
     strict: bool,
     print_me: bool,
 ) -> bool {
     let result = match strict {
-        true => state_expected == state,
+        true => final_state == tested_state,
         false => {
-            state_expected.pc == state.pc &&
-            state_expected.a == state.a &&
-            state_expected.s == state.s &&
-            state_expected.x == state.x &&
-            state_expected.y == state.y &&
-            state_expected.p == state.p &&
-            state_expected.m == state.m
+            final_state.pc == tested_state.pc &&
+            final_state.a == tested_state.a &&
+            final_state.s == tested_state.s &&
+            final_state.x == tested_state.x &&
+            final_state.y == tested_state.y &&
+            final_state.p == tested_state.p &&
+            final_state.m == tested_state.m
         }
     };
     if !result && print_me {
-        let mut table = Table::new(vec![("final state", &*state), ("expected state", &*state_expected)]);
+        let mut table = Table::new(vec![("initial state", &*initial_state), ("tested state", &*tested_state), ("final state", &*final_state)]);
         table.with(Style::modern());
         println!("{}", table);
 
-        let mvec: Vec<Vec<String>> = state_expected
+        let mvec: Vec<Vec<String>> = final_state
             .m
             .clone()
             .into_iter()
-            .zip(state.m.clone())
+            .zip(tested_state.m.clone())
             .enumerate()
             .filter(|(_, (a, b))| a != b)
             .map(
@@ -98,8 +99,8 @@ fn debug_state_comparison(
         println!("{}", table);
 
         let mut cycle_comparison: Vec<Vec<String>> = vec![];
-        let mut it_xs = state.cycles.iter();
-        let mut it_ys = state_expected.cycles.iter();
+        let mut it_xs = tested_state.cycles.iter();
+        let mut it_ys = final_state.cycles.iter();
         loop {
             match (it_xs.next(), it_ys.next()) {
                 (Some(x), Some(y)) => {
@@ -140,11 +141,12 @@ fn run_processor_test(filename: String, instruction: u8) {
     // TODO: Remove take, this is to speed up testing.
     for value in v.as_array().unwrap().iter().take(100) {
         tests_total += 1;
-        let mut state = json_to_state(value, "initial", false);
-        let mut final_state = json_to_state(value, "final", true);
+        let initial_state = json_to_state(value, "initial", false);
+        let mut tested_state = json_to_state(value, "initial", false);
+        let final_state = json_to_state(value, "final", true);
         // println!("Start state: {}", state.pc());
 
-        match state.execute_next_instruction() {
+        match tested_state.execute_next_instruction() {
             Ok(_) => (),
             Err(Some(instruction)) => match instruction.opcode {
                 OpCode::UnknownInstruction => {
@@ -162,7 +164,7 @@ fn run_processor_test(filename: String, instruction: u8) {
             Err(None) => {}
         }
 
-        if debug_state_comparison(&mut final_state, &mut state, false, true) {
+        if debug_state_comparison(&initial_state, &final_state, &mut tested_state, false, true) {
             tests_passed += 1;
         } else {
             break;

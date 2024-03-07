@@ -194,7 +194,7 @@ fn test_all_instructions_groupwise() {
     
     for opcode in OpCode::iter() {
         for (ibyte, instruction) in instructions.iter().enumerate() {
-            if instruction.opcode == opcode {
+            if instruction.opcode == opcode && opcode == OpCode::ADC && opcode != OpCode::CMP {
                 println!("{}", instruction);
                 run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0)
             }

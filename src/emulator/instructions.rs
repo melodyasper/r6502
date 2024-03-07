@@ -11,14 +11,36 @@ const DECIMAL_MODE_TABLE: [u8; 100] = [
 ];
 
 trait Decimal {
+    fn as_bcd(&self) -> u8;
     fn as_dec(&self) -> u8;
 }
 
 impl Decimal for u8 {
+
+    // New strategy
+    // Lookup table 256 * 256 wide
+    // fill in sane defaults and use bitmatching to determine closest
+    // update values as we come to understand them better.
+    fn as_bcd(&self) -> u8 {
+        let pair = DECIMAL_MODE_TABLE.iter().enumerate().find(|(_, bcd)| *bcd == self);
+        match pair {
+            Some((dec, _)) => dec as u8,
+            None => {
+                // todo: fix
+                println!("Value {} (hex {:#02x}) is outside of DECIMAL_MODE_TABLE", self, self);
+                return 0;
+            }
+        }
+    }
     fn as_dec(&self) -> u8 {
-        match DECIMAL_MODE_TABLE.get((*self as usize) % DECIMAL_MODE_TABLE.len()) {
-            Some(value) => *value,
-            None => panic!("Value {} is outside of DECIMAL_MODE_TABLE", self)
+        let pair = DECIMAL_MODE_TABLE.iter().enumerate().find(|(dec, _)| ((*dec) as u8) == *self);
+        match pair {
+            Some((_,bcd)) => *bcd,
+            None => {
+                // todo: fix
+                println!("Value {} (hex {:#02x}) is outside of DECIMAL_MODE_TABLE", self, self);
+                return 0;
+            }
         }
     }
 }
@@ -1856,47 +1878,110 @@ impl Instruction {
                 let argument = memory_pair
                     .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                     .value;
-
                 
-
-                // TODO: Decimal mode
-                let carry_flag: u16 = match state.p.contains(SystemFlags::carry) {
+                let carry_flag = match state.p.contains(SystemFlags::carry) {
                     true => 1,
                     false => 0,
                 };
 
-                let is_decimal_mode = state.p.contains(SystemFlags::decimal);
-
-                if is_decimal_mode {
-                    println!("state.a:  {} |  decimal: {}", state.a, state.a.as_dec());
-                    println!("state.a:  {} |  decimal: {}", argument, argument.as_dec());
-                    println!("state.a + argument in decimal:  {}",(state.a.as_dec() + argument.as_dec()).as_dec());
-                }
+                let overflow_flag = (!(state.a ^ argument) & (state.a ^ argument) & 0b10000000) == 0b10000000;
                 
-                let result: u16 = match is_decimal_mode {
-                    true => state.a.as_dec() as u16 + argument.as_dec() as u16 + carry_flag,
-                    false => state.a as u16 + argument as u16 + carry_flag,
-                };
+                let is_adc_mode = state.p.contains(SystemFlags::decimal);
+                let result = state.a as u16 + argument as u16 + carry_flag as u16;
+                if is_adc_mode {
+                    // * Add the lower nybbles of the two operands and store in a temporary variable. Include the carry flag in the addition.
+                    // * Add the upper nybbles and store in another temporary variable.
+                    // * If the lower nybble result is greater than 9, subtract ten (or add six), AND the result with $F, then add 1 to the upper nybble result.
+                    // * If the upper nybble result is greater than 9, subtract ten (or add six), AND the result with $F, then set the carry flag (which should otherwise be clear).
+                    // * Set the accumulator to (upper nybble << 4) + lower nybble.
+                    // * Now set N, Z, and V as you would for binary ADC.
+                    
+                    let mut lower_nibble = (state.a & 0xF) + (argument & 0xF) + carry_flag;
+                    let mut upper_nibble = ((state.a >> 4) & 0xF) + ((argument >> 4) & 0xF);
+                    println!("state.a: {:#02x}", state.a);
+                    println!("argument: {:#02x}", argument);
+                    println!("lower NIBBLE: {:#02x}", lower_nibble);
+                    println!("upper NIBBLE: {:#02x}", upper_nibble);
+                    
+                    if lower_nibble > 9 {
+                        lower_nibble += 6;
+                        lower_nibble &= 0xF;
+                        upper_nibble += 1;
+                        println!("lower NIBBLE post fixup: {:#02x}", lower_nibble);
+                        println!("upper NIBBLE with carry: {:#02x}", upper_nibble);
+                    }
+                    if upper_nibble > 9 {
+                        upper_nibble += 6;
+                        upper_nibble &= 0xF;
+                        state.p.insert(SystemFlags::carry);
+                        println!("upper NIBBLE post fixup: {:#02x}", upper_nibble);
+                    }
+                    else {
+                        state.p.remove(SystemFlags::carry);
+                    }
+                    state.a = (upper_nibble << 4) + lower_nibble;
+                }
+                else {
+                    state.p.set(SystemFlags::carry, result > u8::MAX.into());
+                    state.a = result as u8;
+                }
 
-                // sets the carry flag when the sum of a binary add exceeds 255 or when the sum of a decimal add exceeds 99, otherwise carry is reset.
-                state.p.set(SystemFlags::carry, match is_decimal_mode {
-                    true => result > 99,
-                    false => result > u8::MAX.into()
-                });
+
                 //The overflow flag is set when the sign or bit 7 is changed due to the result exceeding +127 or -128, otherwise overflow is reset.
-
                 state.p.set(
                     SystemFlags::overflow,
-                    (!(state.a ^ argument) & (state.a ^ argument) & 0b10000000) == 0b10000000,
+                    overflow_flag,
                 );
+
                 //The negative flag is set if the accumulator result contains bit 7 on, otherwise the negative flag is reset.
                 state
                     .p
                     .set(SystemFlags::negative, (result & 0b10000000) == 0b10000000);
+
                 //The zero flag is set if the accumulator result is 0, otherwise the zero flag is reset.
-                state.a = result as u8;
                 state.p.set(SystemFlags::zero, state.a == 0);
             }
+            // OpCode::ADC => {
+            //     let argument = memory_pair
+            //         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
+            //         .value;
+
+            //     // TODO: Decimal mode
+            //     let carry_flag: u16 = match state.p.contains(SystemFlags::carry) {
+            //         true => 1,
+            //         false => 0,
+            //     };
+            //     let is_decimal_mode = state.p.contains(SystemFlags::decimal);
+            //     let result: u16 = match is_decimal_mode {
+            //         true => state.a.as_bcd() as u16 + argument.as_bcd() as u16 + carry_flag,
+            //         false => state.a as u16 + argument as u16 + carry_flag,
+            //     };
+
+            //     if is_decimal_mode {
+            //         println!("result after bcd mode add: {}", result);
+            //     }
+            //     // sets the carry flag when the sum of a binary add exceeds 255 or when the sum of a decimal add exceeds 99, otherwise carry is reset.
+            //     state.p.set(SystemFlags::carry, match is_decimal_mode {
+            //         true => result > 99,
+            //         false => result > u8::MAX.into()
+            //     });
+            //     //The overflow flag is set when the sign or bit 7 is changed due to the result exceeding +127 or -128, otherwise overflow is reset.
+
+            //     state.p.set(
+            //         SystemFlags::overflow,
+            //         (!(state.a ^ argument) & (state.a ^ argument) & 0b10000000) == 0b10000000,
+            //     );
+            //     //The negative flag is set if the accumulator result contains bit 7 on, otherwise the negative flag is reset.
+            //     state
+            //         .p
+            //         .set(SystemFlags::negative, (result & 0b10000000) == 0b10000000);
+            //     //The zero flag is set if the accumulator result is 0, otherwise the zero flag is reset.
+            //     state.a = match is_decimal_mode {
+            //         true => ((result as u8) % 100).as_dec(),
+            //         false => result as u8 
+            //     };
+            //     state.p.set(SystemFlags::zero, state.a == 0);
+            // }
             OpCode::AND => {
                 let argument = memory_pair
                     .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
@@ -2134,12 +2219,12 @@ impl Instruction {
             OpCode::CMP => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
                 let value = memory_pair.value;
-                let result = state.a.overflowing_sub(value).0;
+                let (result, set_overflow) = state.a.overflowing_sub(value);
                 state.p.set(SystemFlags::zero, result == 0);
                 state.p.set(SystemFlags::carry, value <= state.a);
                 state
                     .p
-                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000)
+                    .set(SystemFlags::negative, set_overflow && (result & 0b10000000) == 0b10000000 );
             }
             OpCode::CPX => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;

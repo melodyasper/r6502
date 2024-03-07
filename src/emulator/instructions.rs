@@ -2242,12 +2242,12 @@ impl Instruction {
             OpCode::CMP => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
                 let value = memory_pair.value;
-                let (result, set_overflow) = state.a.overflowing_sub(value);
+                let (result, _) = state.a.overflowing_sub(value);
                 state.p.set(SystemFlags::zero, result == 0);
                 state.p.set(SystemFlags::carry, value <= state.a);
                 state
                     .p
-                    .set(SystemFlags::negative, set_overflow && (result & 0b10000000) == 0b10000000 );
+                    .set(SystemFlags::negative, (result & 0b10000000) == 0b10000000 );
             }
             OpCode::CPX => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
@@ -2377,7 +2377,7 @@ impl Instruction {
                 state.p.set(SystemFlags::zero, state.x == 0);
                 state
                     .p
-                    .set(SystemFlags::negative, (state.x & 0b01000000) == 0b01000000);
+                    .set(SystemFlags::negative, (state.x & 0b10000000) == 0b10000000);
             }
             OpCode::LDY => {
                 let value = memory_pair

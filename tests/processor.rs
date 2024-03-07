@@ -216,6 +216,38 @@ fn test_all_instructions_groupwise() {
     assert_eq!(total, passed);
 }
 
+#[test]
+fn test_all_cmp() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::CMP {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+
+#[test]
+fn test_all_ldx() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::LDX {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
 
 #[test]
 fn test_all_rol() {

@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use crate::emulator::state::{EmulatorError, SystemFlags, SystemState};
 use anyhow::{anyhow, Result};
 use strum_macros::EnumIter;
@@ -27,7 +29,7 @@ impl Decimal for u8 {
             Some((dec, _)) => dec as u8,
             None => {
                 // todo: fix
-                println!("Value {} (hex {:#02x}) is outside of DECIMAL_MODE_TABLE", self, self);
+                // println!("Value {} (hex {:#02x}) is outside of DECIMAL_MODE_TABLE", self, self);
                 return 0;
             }
         }
@@ -38,7 +40,7 @@ impl Decimal for u8 {
             Some((_,bcd)) => *bcd,
             None => {
                 // todo: fix
-                println!("Value {} (hex {:#02x}) is outside of DECIMAL_MODE_TABLE", self, self);
+                // println!("Value {} (hex {:#02x}) is outside of DECIMAL_MODE_TABLE", self, self);
                 return 0;
             }
         }
@@ -803,6 +805,26 @@ impl From<u8> for Instruction {
 
         // Single byte and special multibyte carveout as an exception
         match value {
+            // https://llx.com/Neil/a2/opcodes.html
+            // Note that bbb = 100 and 110 are missing. Also, with STX and LDX, "zero page,X" addressing becomes "zero page,Y", and with LDX, "absolute,X" becomes "absolute,Y". 
+            0x96 => {
+                return Instruction {
+                    opcode: OpCode::STX,
+                    mode: Some(AddressingMode::DirectZeroPageY)
+                }
+            }
+            0xB6 => {
+                return Instruction {
+                    opcode: OpCode::LDX,
+                    mode: Some(AddressingMode::DirectZeroPageY)
+                }
+            }
+            0xBE => {
+                return Instruction {
+                    opcode: OpCode::LDX,
+                    mode: Some(AddressingMode::DirectAbsoluteY)
+                }
+            }
             // https://www.masswerk.at/6502/6502_instruction_set.html
             0x00 => {
                 return Instruction {
@@ -1905,10 +1927,10 @@ impl Instruction {
                     
                     let mut lower_nibble = (state.a & 0xF) + (argument & 0xF) + carry_flag;
                     let mut upper_nibble = ((state.a >> 4) & 0xF) + ((argument >> 4) & 0xF);
-                    println!("state.a: {:#02x}", state.a);
-                    println!("argument: {:#02x}", argument);
-                    println!("lower NIBBLE: {:#02x}", lower_nibble);
-                    println!("upper NIBBLE: {:#02x}", upper_nibble);
+                    // println!("state.a: {:#02x}", state.a);
+                    // println!("argument: {:#02x}", argument);
+                    // println!("lower NIBBLE: {:#02x}", lower_nibble);
+                    // println!("upper NIBBLE: {:#02x}", upper_nibble);
                     
                     if lower_nibble > 9 {
                         lower_nibble += 6;
@@ -1996,18 +2018,19 @@ impl Instruction {
             OpCode::ASL => {
                 let (value, overflow) = match self.mode {
                     Some(AddressingMode::Accumulator) => {
-                        let out = state.a.overflowing_shl(1);
-                        state.a = out.0;
-                        out
+                        let value = state.a;
+                        let out = value << 1;
+                        state.a = out;
+                        (out, (value & 0b10000000) == 0b10000000)
                     }
                     _ => {
                         let memory_pair =
                             memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
                         let address = memory_pair.address;
                         let value = memory_pair.value;
-                        let out = value.overflowing_shl(1);
-                        state.write(address, out.0)?;
-                        out
+                        let out = value << 1;
+                        state.write(address, out)?;
+                        (out, (value & 0b10000000) == 0b10000000)
                     }
                 };
 
@@ -2369,9 +2392,10 @@ impl Instruction {
             OpCode::LSR => {
                 let (value, overflow) = match self.mode {
                     Some(AddressingMode::Accumulator) => {
-                        let out = state.a.overflowing_shr(1);
-                        state.a = out.0;
-                        out
+                        let value = state.a;
+                        let out = value >> 1;
+                        state.a = out;
+                        (out, (value & 0x1) == 0x1)
                     }
                     _ => {
                         let memory_pair =
@@ -2379,9 +2403,9 @@ impl Instruction {
                         let address = memory_pair.address;
                         let value = memory_pair.value;
 
-                        let out = value.overflowing_shr(1);
-                        state.write(address, out.0)?;
-                        out
+                        let out = value >> 1;
+                        state.write(address, out)?;
+                        (out, (value & 0x1) == 0x1)
                     }
                 };
                 state.p.set(SystemFlags::carry, overflow);
@@ -2432,7 +2456,7 @@ impl Instruction {
                     _ => {
                         let memory_pair =
                             memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
-                        println!("MemoryPair@ROL: {:?}", memory_pair);
+                        // println!("MemoryPair@ROL: {:?}", memory_pair);
                         let address = memory_pair.address;
                         let value: u8 = memory_pair.value;
                         let input = value;
@@ -2451,7 +2475,7 @@ impl Instruction {
                 state.p.set(SystemFlags::zero, output == 0);
                 state
                     .p
-                    .set(SystemFlags::negative, (output & 0b01000000) == 0b01000000);
+                    .set(SystemFlags::negative, (input & 0b01000000) == 0b01000000);
             }
 
             OpCode::ROR => {
@@ -2473,7 +2497,7 @@ impl Instruction {
                         let input = value;
                         let output = match state.p.contains(SystemFlags::carry) {
                             false => input >> 1,
-                            true => (input >> 1) | 0x1,
+                            true => (input >> 1) | (0x1 << 7),
                         };
                         state.write(address, output)?;
                         (input, output)
@@ -2528,6 +2552,7 @@ impl Instruction {
                 let address = memory_pair
                     .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                     .address;
+                
                 state.write(address, state.x)?;
             }
             OpCode::STY => {

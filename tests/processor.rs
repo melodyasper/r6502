@@ -1,7 +1,8 @@
-use r6502::emulator::instructions::{self, OpCode};
+use r6502::emulator::instructions::{Instruction, OpCode};
 use r6502::emulator::state::{SystemAction, SystemCycle, SystemFlags, SystemState};
 
 use serde_json::Value;
+use strum::IntoEnumIterator;
 use tabled::builder::Builder;
 use tabled::settings::themes::ColumnNames;
 use tabled::settings::Style;
@@ -146,12 +147,12 @@ fn run_processor_test(filename: String, instruction: u8) {
         match state.execute_next_instruction() {
             Ok(_) => (),
             Err(Some(instruction)) => match instruction.opcode {
-                OpCode::UnknownInstruction(ibyte) => {
-                    if !unknown_instructions.contains(&ibyte) {
-                        unknown_instructions.push(ibyte);
+                OpCode::UnknownInstruction => {
+                    if !unknown_instructions.contains(&instruction) {
+                        unknown_instructions.push(instruction);
                     }
                 }
-                OpCode::BadInstruction(_) => (),
+                OpCode::BadInstruction => (),
                 _ => {
                     if !unfinished_instructions.contains(&instruction) {
                         unfinished_instructions.push(instruction);
@@ -168,7 +169,7 @@ fn run_processor_test(filename: String, instruction: u8) {
         }
     }
     for i in unknown_instructions.iter() {
-        println!("Unknown Instruction {:#04x}", i);
+        println!("Unknown Instruction {:?}", i);
     }
     for i in unfinished_instructions.iter() {
         println!("The following instruction isnt implemented: {:?}", i);
@@ -179,6 +180,24 @@ fn run_processor_test(filename: String, instruction: u8) {
         instruction, tests_passed, tests_total
     );
     assert!(tests_passed == tests_total);
+}
+
+#[test]
+fn test_all_instructions_groupwise() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for opcode in OpCode::iter() {
+        for (ibyte, instruction) in instructions.iter().enumerate() {
+            if instruction.opcode == opcode {
+                println!("{}", instruction);
+                run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0)
+            }
+        }
+    }
 }
 
 #[test]

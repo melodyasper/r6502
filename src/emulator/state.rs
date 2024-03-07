@@ -167,11 +167,11 @@ impl SystemState {
         };
         let instruction = Instruction::from(ibyte);
         match instruction.opcode {
-            OpCode::UnknownInstruction(_) => {
+            OpCode::UnknownInstruction => {
                 self.running = false;
                 return Err(Some(instruction));
             },
-            OpCode::BadInstruction(_) => {
+            OpCode::BadInstruction => {
                 self.running = false;
                 return Err(Some(instruction));
             },

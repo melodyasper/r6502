@@ -1884,10 +1884,47 @@ impl Instruction {
                     false => 0,
                 };
 
-                let overflow_flag = (!(state.a ^ argument) & (state.a ^ argument) & 0b10000000) == 0b10000000;
+                // Carry indicates unsigned overflow
+                // Overflow indicates signed overflow.
+                // When you figure that $81 can be -127 and $FF can be -1..
+                // When adding two unsigned numbers results in > $FF, C is set
+                // When adding two signed numbers results in > 127 ($7F) or < -128 ($80), V is set
+                // In emulation, this can be easily checked by looking at the high bits. Basically:
+                // Overflow is set if:
+                // Positive + Positive = Negative
+                // or
+                // Negative + Negative = Positive
+                // Overflow is cleared in all other instances.
+
                 
+                    
+                
+                println!("-------");
                 let is_adc_mode = state.p.contains(SystemFlags::decimal);
                 let result = state.a as u16 + argument as u16 + carry_flag as u16;
+
+                let argument_is_positive = argument & 0b10000000;
+                let state_a_is_positive =   state.a & 0b10000000;
+                // If the arguments are in agreement for their sign bit
+                println!("argument_is_positive {}", argument_is_positive);
+                println!("state_a_is_positive {}", state_a_is_positive);
+                if argument_is_positive == state_a_is_positive {
+                    println!("in evaluator");
+                    println!("result {}", result);
+                    println!("result as u8 {}", result as u8);
+                    println!("((result as u8) & 0b10000000) {}", ((result as u8) & 0b10000000));
+                    
+                    // Set this based on if the resulting sign bit differs
+                    state.p.set(
+                        SystemFlags::overflow,
+                        ((result as u8) & 0b10000000) != argument_is_positive,
+                    );
+                }
+                else {
+                    state.p.remove(SystemFlags::overflow);
+                }
+
+
                 if is_adc_mode {
                     // * Add the lower nybbles of the two operands and store in a temporary variable. Include the carry flag in the addition.
                     // * Add the upper nybbles and store in another temporary variable.
@@ -1926,12 +1963,6 @@ impl Instruction {
                     state.a = result as u8;
                 }
 
-
-                //The overflow flag is set when the sign or bit 7 is changed due to the result exceeding +127 or -128, otherwise overflow is reset.
-                state.p.set(
-                    SystemFlags::overflow,
-                    overflow_flag,
-                );
 
                 //The negative flag is set if the accumulator result contains bit 7 on, otherwise the negative flag is reset.
                 state

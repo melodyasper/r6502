@@ -486,6 +486,13 @@ impl Instruction {
                 let value = state.read(address.into())?;
                 Some(MemoryPair { address: address.into(), value })
             }
+            Some(AddressingMode::DirectZeroPageY) => {
+                let address = state.pc();
+                let address = state.read(address)?.overflowing_add(state.y).0;
+                state.set_pc(state.pc().wrapping_add(1));
+                let value = state.read(address.into())?;
+                Some(MemoryPair { address: address.into(), value })
+            }
             Some(AddressingMode::DirectAbsolute) => {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
                 
@@ -528,7 +535,7 @@ impl Instruction {
                 let value = state.read(address)?;
                 Some(MemoryPair { address, value })
             }
-            Some(AddressingMode::Accumulator) => {
+            Some(AddressingMode::Accumulator) | None | Some(AddressingMode::Implied) => {
                 None
             }
             Some(AddressingMode::IndirectZeroPageY) => {
@@ -550,7 +557,6 @@ impl Instruction {
                 let value = state.read(address)?;
                 Some(MemoryPair { address, value })
             }
-            None => None,
         };
 
         match self.opcode {

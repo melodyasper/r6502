@@ -2394,15 +2394,18 @@ impl Instruction {
                 state.set_pc(address);
             }
             OpCode::JSR => {
+                // TODO: THIS WORKS BUT ITS SUPPOSED TO BE AN ADD 2. SOMETHING WEIRD IS GOING ON
+                // BETWEEN THE AGREEMENT OF THE ADDRESSING MODE AND JSR. JSR IS VERY OOD THOUGH.
                 let address = memory_pair
                     .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                     .address;
-                let low_byte = (state.pc() & 0xFF) as u8;
-                let high_byte = (state.pc().overflowing_shr(8).0 & 0xFF) as u8;
+                let next_pc = state.pc().wrapping_sub(1);
+                let low_byte = (next_pc & 0xFF) as u8;
+                let high_byte = (next_pc.overflowing_shr(8).0 & 0xFF) as u8;
 
-                state.write(state.s.into(), high_byte)?;
+                state.write(0x100 + state.s as u16, high_byte)?;
                 state.s = state.s.wrapping_sub(1);
-                state.write(state.s.into(), low_byte)?;
+                state.write(0x100 + state.s as u16, low_byte)?;
                 state.s = state.s.wrapping_sub(1);
 
                 

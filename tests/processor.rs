@@ -661,12 +661,39 @@ fn test_all_bcs() {
     }
 }
 
+#[test]
+fn test_all_jsr() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::JSR {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_sbc() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::SBC {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+        }
+    }
+}
 /* Needed still
-Instruction JSR in Absolute mode: Failed
-Instruction JMPAbsolute in Immediate mode: The following instruction isnt implemented: Instruction { opcode: JMPAbsolute, mode: Some(Immediate) }
-Failed
-Instruction JMPAbsolute in Absolute mode: The following instruction isnt implemented: Instruction { opcode: JMPAbsolute, mode: Some(DirectAbsolute) }
-Failed
+JSR
 SBC
 */
 

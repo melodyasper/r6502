@@ -2292,14 +2292,14 @@ impl Instruction {
                     .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
             }
             OpCode::DEX => {
-                state.y = state.x.overflowing_sub(1).0;
+                state.x = state.x.overflowing_sub(1).0;
                 state.p.set(SystemFlags::zero, state.x == 0);
                 state
                     .p
                     .set(SystemFlags::negative, (state.x & 0b10000000) == 0b10000000);
             }
             OpCode::DEY => {
-                state.y = state.x.overflowing_sub(1).0;
+                state.y = state.y.overflowing_sub(1).0;
                 state.p.set(SystemFlags::zero, state.y == 0);
                 state
                     .p
@@ -2451,6 +2451,11 @@ impl Instruction {
             OpCode::PLA => {
                 state.s = state.s.wrapping_add(1);
                 state.a = state.read(0x100 + state.s as u16)?;
+
+                state.p.set(SystemFlags::zero, state.a == 0);
+                state
+                    .p
+                    .set(SystemFlags::negative, (state.a & 0b10000000) == 0b10000000);
             }
             OpCode::PLP => {
                 // http://forum.6502.org/viewtopic.php?f=12&t=7890

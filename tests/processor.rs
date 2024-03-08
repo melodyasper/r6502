@@ -466,8 +466,6 @@ fn test_all_plp() {
     }
 }
 
-// fixme
-
 #[test]
 fn test_all_pla() {
     let mut instructions = vec![];
@@ -515,6 +513,8 @@ fn test_all_dex() {
         }
     }
 }
+
+// fixme
 
 #[test]
 fn test_all_inx() {

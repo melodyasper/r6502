@@ -434,8 +434,6 @@ fn test_all_bit() {
 }
 
 
-// fixme
-
 #[test]
 fn test_all_php() {
     let mut instructions = vec![];
@@ -467,6 +465,8 @@ fn test_all_plp() {
         }
     }
 }
+
+// fixme
 
 #[test]
 fn test_all_pla() {

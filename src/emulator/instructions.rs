@@ -3,6 +3,7 @@ use std::ops::Add;
 use crate::emulator::state::{EmulatorError, SystemFlags, SystemState};
 use anyhow::{anyhow, Result};
 use strum_macros::EnumIter;
+use tabled::Tabled;
 
 const DECIMAL_MODE_TABLE: [u8; 100] = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 32, 33, 34, 35, 36, 37, 38,
@@ -2438,7 +2439,13 @@ impl Instruction {
                 state.s = state.s.wrapping_sub(1);
             }
             OpCode::PHP => {
-                state.write(0x100 + state.s as u16, state.p.bits())?;
+                // from http://forum.6502.org/viewtopic.php?f=8&t=3111
+                // The emulators just follow the behavior of a real 6502 or any of its hardware successors. 
+                // The unused bit (B| Break) returns a 1 when read, because it is not present in hardware and reading an open circuit simply returns a logic high state. 
+                // The same is true for the break bit, as it is not an existing flag bit register but a forced low to an otherwise open circuit. 
+                // The bit is forced low only when the processor flag bits are pushed onto the stack during either an IRQ or a NMI. 
+                let saved_p = (state.p | SystemFlags::break_command).bits();
+                state.write(0x100 + state.s as u16, saved_p)?;
                 state.s = state.s.wrapping_sub(1);
             }
             OpCode::PLA => {
@@ -2446,8 +2453,15 @@ impl Instruction {
                 state.a = state.read(0x100 + state.s as u16)?;
             }
             OpCode::PLP => {
+                // http://forum.6502.org/viewtopic.php?f=12&t=7890
+                // When SR is pulled from the stack with a PLP instruction, bits 4 (break_command) and 5 (expansion) will not be affected by whatever is on the stack.  
+                // The sequence PHP - PLA will result in bits 4 and 5 always being set in the accumulator copy of SR.
                 state.s = state.s.wrapping_add(1);
-                state.p = SystemFlags::from_bits_retain(state.read(0x100 + state.s as u16)?);
+                let mut loaded_p = SystemFlags::from_bits_retain(state.read(0x100 + state.s as u16)?);
+                loaded_p.set(SystemFlags::break_command, state.p.contains(SystemFlags::break_command));
+                loaded_p.set(SystemFlags::expansion, state.p.contains(SystemFlags::expansion));
+                state.p = loaded_p ;
+
             }
             OpCode::ROL => {
                 let (input, output) = match self.mode {

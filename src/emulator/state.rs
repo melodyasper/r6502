@@ -157,6 +157,9 @@ impl std::fmt::Display for EmulatorError {
 
 impl SystemState {
     pub fn execute_next_instruction(&mut self) -> Result<Instruction, Option<Instruction>> {
+        if !self.running {
+            return Err(None);
+        }
         let next_instruction = self.read(self.pc());
         let ibyte = match next_instruction {
             Ok(ibyte) => ibyte,
@@ -184,8 +187,7 @@ impl SystemState {
             Ok(_) => {
                 Ok(instruction)
             }
-            Err(message) => {
-                println!("{}", message);
+            Err(_) => {
                 self.running = false;
                 Err(Some(instruction))
             },

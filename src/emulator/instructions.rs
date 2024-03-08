@@ -2564,33 +2564,25 @@ impl Instruction {
             OpCode::TAX => {
                 let value = state.a;
                 state.x = value;
-                state
-                    .p
-                    .set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
                 state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TAY => {
                 let value = state.a;
                 state.y = value;
-                state
-                    .p
-                    .set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
                 state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TSX => {
                 let value = state.s;
                 state.x = value;
-                state
-                    .p
-                    .set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
                 state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TXA => {
                 let value = state.x;
                 state.a = value;
-                state
-                    .p
-                    .set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
                 state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TXS => {
@@ -2604,12 +2596,18 @@ impl Instruction {
             OpCode::TYA => {
                 let value = state.y;
                 state.a = value;
-                state
-                    .p
-                    .set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
+                state.p.set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
                 state.p.set(SystemFlags::zero, value == 0);
             }
-
+            // ILLEGAL OP CODES
+            // ILLEGAL OP CODES
+            // ILLEGAL OP CODES
+            // ILLEGAL OP CODES
+            OpCode::INOP => (),
+            OpCode::KIL => {
+                // TODO: Not working
+                state.running = false;
+            },
             _ => return Err(anyhow!(EmulatorError::UnimplementedInstruction)),
         }
         // state.print_registers();

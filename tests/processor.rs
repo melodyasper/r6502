@@ -9,6 +9,7 @@ use tabled::settings::Style;
 use tabled::Table;
 use std::fs::File;
 use std::io::Read;
+use colored::Colorize;
 
 fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> SystemState {
     let mut state = SystemState {
@@ -19,7 +20,7 @@ fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> SystemSt
         s:  state_map[key]["s"].as_u64().unwrap() as u8,
         p: SystemFlags::from_bits_retain(state_map[key]["p"].as_u64().unwrap() as u8),
         m: vec![0; 0x10000],
-        running: false,
+        running: true,
         cycles: Default::default()
     };
 
@@ -143,7 +144,8 @@ fn run_processor_test(filename: String, instruction: u8, failable: bool) -> bool
         tests_total += 1;
         let initial_state = json_to_state(value, "initial", false);
         let mut tested_state = json_to_state(value, "initial", false);
-        let final_state = json_to_state(value, "final", true);
+        let mut final_state = json_to_state(value, "final", true);
+        final_state.running = false;
         // println!("Start state: {}", state.pc());
 
         match tested_state.execute_next_instruction() {
@@ -205,10 +207,10 @@ fn test_all_instructions_groupwise() {
                 let result = run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, false);
                 if result == true {
                     passed += 1;
-                    println!("Passed");
+                    println!("{}", "Passed".green());
                 }
                 else {
-                    println!("Failed");
+                    println!("{}", "Failed".red());
                 }
             }
         }
@@ -298,6 +300,39 @@ fn test_all_lsr() {
     }
 }
 
+#[test]
+fn test_all_tya() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::TYA {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+
+
+#[test]
+fn test_all_tsx() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::TSX {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
 
 
 #[test]

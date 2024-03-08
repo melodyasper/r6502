@@ -2613,6 +2613,12 @@ impl Instruction {
             OpCode::SEI => {
                 state.p.insert(SystemFlags::interrupt_disable);
             }
+            OpCode::SEC => {
+                state.p.insert(SystemFlags::carry);
+            }
+            OpCode::SED => {
+                state.p.insert(SystemFlags::decimal);
+            }
             OpCode::STA => {
                 let address = memory_pair
                     .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?

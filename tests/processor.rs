@@ -693,7 +693,6 @@ fn test_all_sbc() {
     }
 }
 /* Needed still
-JSR
 SBC
 */
 

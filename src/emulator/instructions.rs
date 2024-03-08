@@ -2610,6 +2610,52 @@ impl Instruction {
 
                 state.set_pc(((high_byte << 8 ) + low_byte).wrapping_add(1));
             }
+            OpCode::SBC => {
+                let argument = memory_pair
+                    .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
+                    .value;
+                
+                let carry_flag: u8 = match state.p.contains(SystemFlags::carry) {
+                    true => (!1u8).into(),
+                    false => (!0u8).into(),
+                };
+
+                let is_adc_mode = state.p.contains(SystemFlags::decimal);
+                let result = state.a as u16 - argument as u16 - carry_flag as u16;
+
+                let argument_is_positive = argument & 0b10000000;
+                let state_a_is_positive =   state.a & 0b10000000;
+                // If the arguments are in agreement for their sign bit
+                if argument_is_positive == state_a_is_positive {
+                    // Set this based on if the resulting sign bit differs
+                    state.p.set(
+                        SystemFlags::overflow,
+                        ((result as u8) & 0b10000000) != argument_is_positive,
+                    );
+                }
+                else {
+                    state.p.remove(SystemFlags::overflow);
+                }
+
+                
+                if is_adc_mode {
+                    // TODO: decimal mode
+                    assert!(!is_adc_mode);
+                }
+                else {
+                    state.p.set(SystemFlags::carry, result > u8::MAX.into());
+                    state.a = result as u8;
+
+                    //The negative flag is set if the accumulator result contains bit 7 on, otherwise the negative flag is reset.
+                    state
+                        .p
+                        .set(SystemFlags::negative, (result & 0b10000000) == 0b10000000);
+                }
+
+
+                //The zero flag is set if the accumulator result is 0, otherwise the zero flag is reset.
+                state.p.set(SystemFlags::zero, state.a == 0);
+            }
             OpCode::SEI => {
                 state.p.insert(SystemFlags::interrupt_disable);
             }

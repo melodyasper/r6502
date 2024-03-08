@@ -825,6 +825,13 @@ impl From<u8> for Instruction {
                     mode: Some(AddressingMode::DirectAbsoluteY)
                 }
             }
+            // BIT immediate should be JSR ABS for some reason
+            0x20 => {
+                return Instruction {
+                    opcode: OpCode::JSR,
+                    mode: Some(AddressingMode::DirectAbsolute),
+                }
+            }
             // https://www.masswerk.at/6502/6502_instruction_set.html
             0x00 => {
                 return Instruction {
@@ -2257,7 +2264,7 @@ impl Instruction {
                 state.p.set(SystemFlags::carry, state.x >= value);
                 state
                     .p
-                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000)
+                    .set(SystemFlags::negative, (result & 0b10000000) == 0b10000000)
             }
             OpCode::CPY => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
@@ -2387,7 +2394,7 @@ impl Instruction {
                 state.p.set(SystemFlags::zero, state.y == 0);
                 state
                     .p
-                    .set(SystemFlags::negative, (state.y & 0b01000000) == 0b01000000);
+                    .set(SystemFlags::negative, (state.y & 0b10000000) == 0b10000000);
             }
             OpCode::LSR => {
                 let (value, overflow) = match self.mode {

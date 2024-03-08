@@ -579,3 +579,94 @@ fn test_all_brk() {
         }
     }
 }
+
+
+#[test]
+fn test_all_cpy() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::CPY {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_jmp() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::JMP {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_rti() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::RTI {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_rts() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::RTS {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_bcs() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::BCS {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+        }
+    }
+}
+
+/* Needed still
+Instruction JSR in Absolute mode: Failed
+Instruction JMPAbsolute in Immediate mode: The following instruction isnt implemented: Instruction { opcode: JMPAbsolute, mode: Some(Immediate) }
+Failed
+Instruction JMPAbsolute in Absolute mode: The following instruction isnt implemented: Instruction { opcode: JMPAbsolute, mode: Some(DirectAbsolute) }
+Failed
+SBC
+*/
+

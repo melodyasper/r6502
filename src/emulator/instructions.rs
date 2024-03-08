@@ -56,7 +56,7 @@ pub enum AddressingMode {
     DirectAbsolute,
     DirectAbsoluteX,
     DirectAbsoluteY,
-    // AbsoluteIndirect
+    IndirectAbsolute,
     DirectZeroPage,
     DirectZeroPageX,
     DirectZeroPageY,
@@ -92,7 +92,6 @@ pub enum OpCode {
     BIT, // 001
     JMP, // 010
     JSR,
-    JMPAbsolute, // 011
     STY,         // 100
     LDY,         // 101
     CPY,         // 110
@@ -806,6 +805,27 @@ impl From<u8> for Instruction {
 
         // Single byte and special multibyte carveout as an exception
         match value {
+            // $6C is JMP (absolute indirect)
+            0x6C => {
+                return Instruction {
+                    opcode: OpCode::JMP,
+                    mode: Some(AddressingMode::IndirectAbsolute)
+                }
+            }
+            // $60 is RTS
+            0x60 => {
+                return Instruction {
+                    opcode: OpCode::RTS,
+                    mode: Some(AddressingMode::Implied)
+                }
+            }
+            // $40 is RTI
+            0x40 => {
+                return Instruction {
+                    opcode: OpCode::RTI,
+                    mode: Some(AddressingMode::Implied)
+                }
+            }
             // https://llx.com/Neil/a2/opcodes.html
             // Note that bbb = 100 and 110 are missing. Also, with STX and LDX, "zero page,X" addressing becomes "zero page,Y", and with LDX, "absolute,X" becomes "absolute,Y". 
             0x96 => {
@@ -1731,7 +1751,6 @@ impl From<u8> for Instruction {
                 let instruction = match instruction_bits {
                     0b001 => OpCode::BIT,
                     0b010 => OpCode::JMP,
-                    0b011 => OpCode::JMPAbsolute,
                     0b100 => OpCode::STY,
                     0b101 => OpCode::LDY,
                     0b110 => OpCode::CPY,
@@ -1780,6 +1799,7 @@ impl std::fmt::Display for Instruction {
                 AddressingMode::Accumulator => "in Accumulator mode",
                 AddressingMode::Immediate => "in Immediate mode",
                 AddressingMode::DirectAbsolute => "in Absolute mode",
+                AddressingMode::IndirectAbsolute => "in Indirect Absolute mode",
                 AddressingMode::DirectAbsoluteX => "in Absolute X mode",
                 AddressingMode::DirectAbsoluteY => "in Absolute Y mode",
                 AddressingMode::DirectZeroPage => "in Zero Page mode",
@@ -1838,6 +1858,17 @@ impl Instruction {
                 })
             }
             Some(AddressingMode::DirectAbsolute) => {
+                // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
+
+                let low_byte = state.read(state.pc())?;
+                state.set_pc(state.pc().wrapping_add(1));
+                let high_byte = state.read(state.pc())?;
+                state.set_pc(state.pc().wrapping_add(1));
+                let address: u16 = ((high_byte as u16) << 8) + low_byte as u16;
+                let value = state.read(address)?;
+                Some(MemoryPair { address, value })
+            }
+            Some(AddressingMode::IndirectAbsolute) => {
                 // In absolute addressing, the second byte of the instruction specifies the eight low order bits of the effective address while the third byte specifies the eight high order bits. Thus, the absolute addressing mode allows access to the entire 65 K bytes of addressable memory.
 
                 let low_byte = state.read(state.pc())?;
@@ -2070,7 +2101,7 @@ impl Instruction {
             }
             OpCode::BCS => {
                 // TODO: Evaluate this.
-                if !state.p.contains(SystemFlags::carry) {
+                if state.p.contains(SystemFlags::carry) {
                     let argument = memory_pair
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
@@ -2278,7 +2309,7 @@ impl Instruction {
                 state.p.set(SystemFlags::carry, state.y >= value);
                 state
                     .p
-                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000)
+                    .set(SystemFlags::negative, (result & 0b10000000) == 0b10000000)
             }
             OpCode::DEC => {
                 let memory_pair = memory_pair.ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?;
@@ -2347,10 +2378,18 @@ impl Instruction {
                     .set(SystemFlags::negative, (state.y & 0b10000000) == 0b10000000);
             }
             OpCode::JMP => {
-                // this should be 4c
                 let address = memory_pair
                     .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                     .address;
+
+                let address = if self.mode == Some(AddressingMode::IndirectAbsolute) {
+                    let low_byte = state.read(address)? as u16;
+                    let high_byte = state.read(address.wrapping_add(1))? as u16;
+                    (high_byte << 8) + low_byte
+                }
+                else {
+                    address
+                };
                 
                 state.set_pc(address);
             }
@@ -2543,12 +2582,17 @@ impl Instruction {
             OpCode::RTI => {
                 state.s = state.s.wrapping_add(1);
                 let r1 = state.read(0x100 + state.s as u16)?;
+                
                 state.s = state.s.wrapping_add(1);
                 let r2 = state.read(0x100 + state.s as u16)?;
                 state.s = state.s.wrapping_add(1);
                 let r3 = state.read(0x100 + state.s as u16)?;
+                
+                let mut loaded_p = SystemFlags::from_bits_retain(r1);
+                loaded_p.set(SystemFlags::break_command, state.p.contains(SystemFlags::break_command));
+                loaded_p.set(SystemFlags::expansion, state.p.contains(SystemFlags::expansion));
 
-                state.p = SystemFlags::from_bits_retain(r1);
+                state.p = loaded_p;
                 state.set_pc(
                     (r2 as u16)
                         .overflowing_add((r3 as u16).overflowing_shl(8).0)
@@ -2557,15 +2601,11 @@ impl Instruction {
             }
             OpCode::RTS => {
                 state.s = state.s.wrapping_add(1);
-                let r1 = state.read(0x100 + state.s as u16)?;
+                let low_byte: u16 = state.read(0x100 + state.s as u16)? as u16;
                 state.s = state.s.wrapping_add(1);
-                let r2 = state.read(0x100 + state.s as u16)?;
+                let high_byte: u16 = state.read(0x100 + state.s as u16)? as u16;
 
-                state.set_pc(
-                    (r1 as u16)
-                        .overflowing_add((r2 as u16).overflowing_shl(8).0)
-                        .0,
-                );
+                state.set_pc(((high_byte << 8 ) + low_byte).wrapping_add(1));
             }
             OpCode::SEI => {
                 state.p.insert(SystemFlags::interrupt_disable);

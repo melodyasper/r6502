@@ -204,7 +204,7 @@ fn test_all_instructions_groupwise() {
             if instruction.opcode == opcode {
                 total += 1;
                 print!("{}: ", instruction);
-                let result = run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, false);
+                let result = run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, false);
                 if result == true {
                     passed += 1;
                     println!("{}", "Passed".green());
@@ -229,7 +229,7 @@ fn test_all_cmp() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::CMP {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -246,7 +246,7 @@ fn test_all_ldx() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::LDX {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -262,7 +262,7 @@ fn test_all_rol() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::ROL {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -278,7 +278,7 @@ fn test_all_ror() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::ROR {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -295,7 +295,7 @@ fn test_all_lsr() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::LSR {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -311,7 +311,7 @@ fn test_all_tya() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::TYA {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -329,7 +329,7 @@ fn test_all_tsx() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::TSX {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -346,7 +346,7 @@ fn test_all_asl() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::ASL {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -362,7 +362,7 @@ fn test_all_sty() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::STY {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -378,7 +378,7 @@ fn test_all_stx() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::STX {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -395,7 +395,7 @@ fn test_all_ldy() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::LDY {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -411,7 +411,7 @@ fn test_all_cpx() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::CPX {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -428,7 +428,7 @@ fn test_all_bit() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::BIT {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -445,7 +445,7 @@ fn test_all_php() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::PHP {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -461,7 +461,7 @@ fn test_all_plp() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::PLP {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -477,7 +477,7 @@ fn test_all_pla() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::PLA {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -493,7 +493,7 @@ fn test_all_dey() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::DEY {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -509,12 +509,10 @@ fn test_all_dex() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::DEX {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
-
-// fixme
 
 #[test]
 fn test_all_inx() {
@@ -527,10 +525,28 @@ fn test_all_inx() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::INX {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
+
+
+#[test]
+fn test_all_iny() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::INY {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+        }
+    }
+}
+
 
 #[test]
 fn test_all_txs() {
@@ -543,7 +559,7 @@ fn test_all_txs() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::TXS {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }
@@ -559,7 +575,7 @@ fn test_all_brk() {
     for (ibyte, instruction) in instructions.iter().enumerate() {
         if instruction.opcode == OpCode::BRK {
             println!("{}", instruction);
-            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
+            run_processor_test(format!("external/ProcessorTests/nes6502/v1/{:02x}.json", ibyte), ibyte as u8, true);
         }
     }
 }

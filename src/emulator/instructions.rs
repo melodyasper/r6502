@@ -837,7 +837,7 @@ impl From<u8> for Instruction {
             0x00 => {
                 return Instruction {
                     opcode: OpCode::BRK,
-                    mode: None,
+                    mode: Some(AddressingMode::Implied),
                 }
             }
             0x08 => {
@@ -2055,10 +2055,10 @@ impl Instruction {
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         state.set_pc(state.pc().overflowing_add(argument as u16).0);
                     } else {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         let temp: u16 = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
@@ -2075,10 +2075,10 @@ impl Instruction {
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         state.set_pc(state.pc().overflowing_add(argument as u16).0);
                     } else {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
@@ -2095,10 +2095,10 @@ impl Instruction {
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         state.set_pc(state.pc().overflowing_add(argument as u16).0);
                     } else {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
@@ -2128,10 +2128,10 @@ impl Instruction {
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         state.set_pc(state.pc().overflowing_add(argument as u16).0);
                     } else {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
@@ -2148,10 +2148,10 @@ impl Instruction {
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         state.set_pc(state.pc().overflowing_add(argument as u16).0);
                     } else {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
@@ -2168,10 +2168,10 @@ impl Instruction {
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         state.set_pc(state.pc().overflowing_add(argument as u16).0);
                     } else {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
@@ -2182,20 +2182,22 @@ impl Instruction {
                 }
             }
             OpCode::BRK => {
-                let argument = memory_pair
-                    .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
-                    .address;
-                let low_byte = (state.pc() & 0xFF) as u8;
-                let high_byte = (state.pc().overflowing_shr(8).0 & 0xFF) as u8;
+                let next_pc = state.pc().wrapping_add(1);
+                let low_byte = (next_pc & 0xFF) as u8;
+                let high_byte = (next_pc.overflowing_shr(8).0 & 0xFF) as u8;
 
-                state.write(state.s.into(), high_byte)?;
+                state.write(0x100 + state.s as u16, high_byte)?;
                 state.s = state.s.wrapping_sub(1);
-                state.write(state.s.into(), low_byte)?;
+                state.write(0x100 + state.s as u16, low_byte)?;
                 state.s = state.s.wrapping_sub(1);
-                state.write(state.s.into(), state.p.bits())?;
+                state.write(0x100 + state.s as u16, (state.p | SystemFlags::break_command).bits())?;
                 state.s = state.s.wrapping_sub(1);
-                // We don't mutate PC, we mutate base address which mutates PC
-                state.set_pc(argument);
+                
+                state.p |= SystemFlags::interrupt_disable;
+
+                let low_byte: u16 = state.read(65534)? as u16;
+                let high_byte: u16 = state.read(65535)? as u16;
+                state.set_pc((high_byte << 8) + low_byte);
             }
             OpCode::BVC => {
                 if !state.p.contains(SystemFlags::overflow) {
@@ -2203,10 +2205,10 @@ impl Instruction {
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         state.set_pc(state.pc().overflowing_add(argument as u16).0);
                     } else {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
@@ -2222,10 +2224,10 @@ impl Instruction {
                         .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                         .value as i8; // Convert back to i8 to handle negatives correctly
                     if argument >= 0 {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         state.set_pc(state.pc().overflowing_add(argument as u16).0);
                     } else {
-                        // We don't mutate PC, we mutate base address which mutates PC
+                        
                         let temp = if argument == i8::MIN {
                             (i8::MAX as u16) + 1
                         } else {
@@ -2329,27 +2331,27 @@ impl Instruction {
                     .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
             }
             OpCode::INX => {
-                let value = state.x.wrapping_add(1);
+                state.x = state.x.wrapping_add(1);
 
-                state.p.set(SystemFlags::zero, value == 0);
+                state.p.set(SystemFlags::zero, state.x == 0);
                 state
                     .p
-                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (state.x & 0b10000000) == 0b10000000);
             }
             OpCode::INY => {
-                let value = state.y.wrapping_add(1);
+                state.y = state.y.wrapping_add(1);
 
-                state.p.set(SystemFlags::zero, value == 0);
+                state.p.set(SystemFlags::zero, state.y == 0);
                 state
                     .p
-                    .set(SystemFlags::negative, (value & 0b10000000) == 0b10000000);
+                    .set(SystemFlags::negative, (state.y & 0b10000000) == 0b10000000);
             }
             OpCode::JMP => {
                 // this should be 4c
                 let address = memory_pair
                     .ok_or(anyhow!(EmulatorError::ExpectedMemoryPair))?
                     .address;
-                // We don't mutate PC, we mutate base address which mutates PC
+                
                 state.set_pc(address);
             }
             OpCode::JSR => {
@@ -2364,7 +2366,7 @@ impl Instruction {
                 state.write(state.s.into(), low_byte)?;
                 state.s = state.s.wrapping_sub(1);
 
-                // We don't mutate PC, we mutate base address which mutates PC
+                
                 state.set_pc(address);
             }
             OpCode::LDA => {
@@ -2614,10 +2616,6 @@ impl Instruction {
             OpCode::TXS => {
                 let value = state.x;
                 state.s = value;
-                state
-                    .p
-                    .set(SystemFlags::carry, (value & 0b10000000) == 0b10000000);
-                state.p.set(SystemFlags::zero, value == 0);
             }
             OpCode::TYA => {
                 let value = state.y;

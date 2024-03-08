@@ -382,3 +382,181 @@ fn test_all_stx() {
         }
     }
 }
+
+// fixme
+
+#[test]
+fn test_all_ldy() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::LDY {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_cpx() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::CPX {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_bit() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::BIT {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_php() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::PHP {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_plp() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::PLP {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_pla() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::PLA {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_dey() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::DEY {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_dex() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::DEX {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_inx() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::INX {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_txs() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::TXS {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}
+
+#[test]
+fn test_all_brk() {
+    let mut instructions = vec![];
+    for ibyte in 0..255u8 {
+        let instruction = Instruction::from(ibyte);
+        instructions.push(instruction);
+    }
+    
+    for (ibyte, instruction) in instructions.iter().enumerate() {
+        if instruction.opcode == OpCode::BRK {
+            println!("{}", instruction);
+            run_processor_test(format!("external/ProcessorTests/6502/v1/{:02x}.json", ibyte), 0x0, true);
+        }
+    }
+}

@@ -1,4 +1,6 @@
-use crate::emulator::instructions::{Instruction, OpCode};
+use std::sync::{Arc, Mutex};
+
+use crate::instructions::{Instruction, OpCode};
 use anyhow::{Result, anyhow};
 use tabled::Tabled;
 use bitflags::bitflags;
@@ -66,7 +68,7 @@ impl From<u8> for SystemFlags {
 }
 
 
-#[derive(Debug, PartialEq, Eq, Tabled)]
+#[derive(Debug, PartialEq, Eq, Tabled, Clone)]
 pub enum SystemAction {
     // You can either read or write a U8 value.
     READ,
@@ -86,7 +88,7 @@ impl std::fmt::Display for SystemAction {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Tabled)]
+#[derive(Debug, PartialEq, Eq, Tabled, Clone)]
 pub struct SystemCycle {
     pub address: u16,
     pub value: u8,
@@ -100,7 +102,7 @@ impl std::fmt::Display for SystemCycle {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Tabled)]
+#[derive(Debug, PartialEq, Eq, Tabled, Clone)]
 pub struct SystemState {
     pub running: bool,
     pub pc: u16,
@@ -134,6 +136,8 @@ impl Default for SystemState {
     }
 }
 
+pub type SharedSystemState = Arc<Mutex<SystemState>>;
+
 #[derive(Debug)]
 pub enum EmulatorError {
     MemoryReadError,
@@ -154,73 +158,3 @@ impl std::fmt::Display for EmulatorError {
         }
     }
 }
-
-impl SystemState {
-    pub fn execute_next_instruction(&mut self) -> Result<Instruction, Option<Instruction>> {
-        if !self.running {
-            return Err(None);
-        }
-        let next_instruction = self.read(self.pc());
-        let ibyte = match next_instruction {
-            Ok(ibyte) => ibyte,
-            Err(_) => {
-                self.running = false;
-                return Err(None);
-            }
-        };
-        let instruction = Instruction::from(ibyte);
-        match instruction.opcode {
-            OpCode::UnknownInstruction => {
-                self.running = false;
-                return Err(Some(instruction));
-            },
-            OpCode::BadInstruction => {
-                self.running = false;
-                return Err(Some(instruction));
-            },
-            _ => ()
-        };
-
-        self.set_pc(self.pc().wrapping_add(1));
-
-        match instruction.execute(self) {
-            Ok(_) => {
-                Ok(instruction)
-            }
-            Err(_) => {
-                self.running = false;
-                Err(Some(instruction))
-            },
-        }
-        
-    }
-    pub fn read(&mut self, address: u16) -> Result<u8> {
-        
-        let byte = self.m.get(address as usize).ok_or(anyhow!(EmulatorError::MemoryReadError).context(format!("Memory read error at address {}", address)))?;
-        self.cycles.push(SystemCycle {address, value: *byte, action: SystemAction::READ});
-
-        // println!("Reading from address {:#04x} yielded byte {:#04x}", address, *byte);
-        Ok(*byte)
-    }
-    
-    pub fn pc(&self) -> u16 {
-        self.pc
-    }
-    pub fn set_pc(&mut self, address: u16) {
-        self.pc = address
-    }
-    pub fn write(&mut self, address: u16, value: u8) -> Result<()> {
-        // println!("Writing to {:x} a value of {:x}", address, value);
-        // println!("Insert into memory @ {} value {}", address, value);
-
-        let length = self.m.len();
-        if length < address.into() {
-            // TODO: Remove this hack.
-            self.m.resize(address as usize + 1, 0x00);
-        }
-        self.m[address as usize] = value;
-        self.cycles.push(SystemCycle {address, value, action: SystemAction::WRITE});
-        Ok(())
-    }
-}
-

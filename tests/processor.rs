@@ -1,5 +1,5 @@
-use r6502::emulator::instructions::{Instruction, OpCode};
-use r6502::emulator::state::{SystemAction, SystemCycle, SystemFlags, SystemState};
+use r6502::instructions::{Instruction, OpCode};
+use r6502::state::{SystemAction, SystemCycle, SystemFlags, SystemState};
 
 use serde_json::Value;
 use strum::IntoEnumIterator;

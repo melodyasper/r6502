@@ -1,6 +1,4 @@
-use r6502::emulator::state::{SystemState, SystemFlags};
-use r6502::emulator::display::Renderer;
-use std::thread;
+use r6502::{emulator::{self, DefaultVirtualMemory, Emulator, EmulatorBuilder}, state::{SystemFlags, SystemState}};
 use std::sync::{Arc, Mutex};
 
 fn main() {
@@ -17,34 +15,15 @@ fn main() {
         0xa9, 0x30, 0x85, 0x09, 0x4c, 0x00, 0xf0, 0x00, 0xf0, 0x00, 0xf0,
     ]);
 
+    let emulator = EmulatorBuilder::default().memory_hook(DefaultVirtualMemory::default()).build().unwrap();
     // https://llx.com/Neil/a2/opcodes.html
-    let state = Arc::new(Mutex::new( SystemState {
-        running: true,
-        pc: 0xF000,
-        // memory: vec![0xA5, 0x60, 0x65, 0x61, 0x85, 0x62],
-        m: memory,
-        a: 0,
-        x: 0,
-        y: 0,
-        s: 0,
-        p: SystemFlags::from(0),
-        cycles: Default::default(),
-    }));
+    let emulator = Arc::new(Mutex::new(emulator));
 
 
-    let state_clone = Arc::clone(&state);
-    thread::spawn(move || {
 
-        let renderer = Renderer {state: state_clone};
-        let _ = renderer.start();
-    });
-
-    
-    
-    // state.memory.resize(256, 0x00);
     loop
     {
-        match state.lock() {
+        match emulator.lock() {
             Ok(mut state) => {
                 match state.execute_next_instruction() {
                     Ok(instruction) => {

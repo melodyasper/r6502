@@ -5,7 +5,7 @@ use derive_builder::Builder;
 #[derive(Builder)]
 pub struct Emulator<M>
 where M: VirtualMemory {
-    memory_hook: M,
+    memory: M,
     pub state: SystemState,
 }
 
@@ -16,7 +16,7 @@ where M: VirtualMemory {
         if !self.state.running {
             return Err(None);
         }
-        let ibyte = self.memory_hook.read(self.state.pc);
+        let ibyte = self.memory.read(self.state.pc);
 
         let instruction = Instruction::from(ibyte);
         match instruction.opcode {
@@ -46,7 +46,7 @@ where M: VirtualMemory {
     }
     pub fn read(&mut self, address: u16) -> u8 {
         
-        let byte = self.memory_hook.read(address);
+        let byte = self.memory.read(address);
         self.state.cycles.push(SystemCycle {address, value: byte, action: SystemAction::READ});
         byte
     }
@@ -55,7 +55,7 @@ where M: VirtualMemory {
         // println!("Writing to {:x} a value of {:x}", address, value);
         // println!("Insert into memory @ {} value {}", address, value);
 
-        self.memory_hook.write(address, value);
+        self.memory.write(address, value);
         self.state.cycles.push(SystemCycle {address, value, action: SystemAction::WRITE});
     }
 }

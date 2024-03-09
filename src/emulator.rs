@@ -60,7 +60,13 @@ where M: VirtualMemory {
     }
 }
 
-#[derive(Clone)]
+impl<'a, M> Emulator<M> where M: VirtualMemory + 'a, &'a M: IntoIterator<Item = &'a u8> {
+    pub fn iter_memory(&'a self) -> <&'a M as IntoIterator>::IntoIter {
+        self.memory.into_iter()
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DefaultVirtualMemory {
     m: Vec<u8>
 }
@@ -71,16 +77,35 @@ impl <'a> Default for DefaultVirtualMemory{
     }
 }
 
+impl From<Vec<u8>> for DefaultVirtualMemory {
+    fn from(value: Vec<u8>) -> Self {
+        let mut nvec: Vec<u8> = vec![];
+        nvec.extend(value);
+        nvec.resize(0x10000, 0);
+        Self { m: nvec }
+    }
+}
+
+impl<'a> IntoIterator for &'a DefaultVirtualMemory {
+    type Item = &'a u8;
+
+    type IntoIter = <&'a Vec<u8> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.m.iter()
+    }
+}
+
 pub trait VirtualMemory {
     fn read(&self, address: u16) -> u8;
-    fn write(&self, address: u16, value: u8);
+    fn write(&mut self, address: u16, value: u8);
 }
 impl VirtualMemory for DefaultVirtualMemory {
     fn read(&self, address: u16) -> u8 {
-        return 0;
+        *self.m.get(address as usize).unwrap_or(&0)
     }
-    fn write(&self, address: u16, value: u8) {
-        ()
+    fn write(&mut self, address: u16, value: u8) {
+        self.m[address as usize] = value;
     }
 }
 

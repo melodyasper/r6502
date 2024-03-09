@@ -114,18 +114,14 @@ pub struct SystemState {
     pub s: u8,
     pub p: SystemFlags,
     #[tabled(skip)]
-    pub m: Vec<u8>,
-    #[tabled(skip)]
     pub cycles: Vec<SystemCycle>,
 }
 
 impl Default for SystemState {
     fn default() -> Self {
-        let memory: Vec<u8> = vec![0; 0x10000];
         Self {
             running: Default::default(),
             pc: Default::default(),
-            m: memory,
             a: 0,
             x: 0,
             y: 0,

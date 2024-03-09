@@ -15,7 +15,7 @@ fn main() {
         0xa9, 0x30, 0x85, 0x09, 0x4c, 0x00, 0xf0, 0x00, 0xf0, 0x00, 0xf0,
     ]);
 
-    let emulator = EmulatorBuilder::default().memory_hook(DefaultVirtualMemory::default()).build().unwrap();
+    let emulator = EmulatorBuilder::default().memory(DefaultVirtualMemory::default()).build().unwrap();
     // https://llx.com/Neil/a2/opcodes.html
     let emulator = Arc::new(Mutex::new(emulator));
 

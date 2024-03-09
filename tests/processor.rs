@@ -1,3 +1,4 @@
+use r6502::emulator::{DefaultVirtualMemory, Emulator, EmulatorBuilder, VirtualMemory};
 use r6502::instructions::{Instruction, OpCode};
 use r6502::state::{SystemAction, SystemCycle, SystemFlags, SystemState};
 
@@ -11,27 +12,30 @@ use std::fs::File;
 use std::io::Read;
 use colored::Colorize;
 
-fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> SystemState {
-    let mut state = SystemState {
+
+
+fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> Emulator<DefaultVirtualMemory>  {
+    let state = SystemState {
         pc: state_map[key]["pc"].as_u64().unwrap() as u16,
         a:  state_map[key]["a"].as_u64().unwrap() as u8,
         x:  state_map[key]["x"].as_u64().unwrap() as u8,
         y:  state_map[key]["y"].as_u64().unwrap() as u8,
         s:  state_map[key]["s"].as_u64().unwrap() as u8,
         p: SystemFlags::from_bits_retain(state_map[key]["p"].as_u64().unwrap() as u8),
-        m: vec![0; 0x10000],
         running: true,
         cycles: Default::default()
     };
 
 
+    let mut emulator = EmulatorBuilder::default().memory(DefaultVirtualMemory::default()).state(state).build().unwrap();
+
     for memory in state_map[key]["ram"].as_array().unwrap().iter() {
         let memory = memory.as_array().unwrap();
         let address = memory.first().unwrap().as_u64().unwrap() as u16;
         let value = memory.get(1).unwrap().as_u64().unwrap() as u8;
-        state.write(address, value).unwrap();
+        emulator.write(address, value);
     }
-    state.cycles.clear();
+    emulator.state.cycles.clear();
 
     if include_cycles {
         for cycle in state_map["cycles"].as_array().unwrap().iter() {
@@ -42,10 +46,10 @@ fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> SystemSt
             let operation = memory.get(2).unwrap().as_str().unwrap();
             match operation {
                 "read" => {
-                    state.cycles.push(SystemCycle {address, value, action: SystemAction::READ})
+                    emulator.state.cycles.push(SystemCycle {address, value, action: SystemAction::READ})
                 },
                 "write" => {
-                    state.cycles.push(SystemCycle {address, value, action: SystemAction::WRITE})
+                    emulator.state.cycles.push(SystemCycle {address, value, action: SystemAction::WRITE})
                 }
                 unknown => {
                     panic!("Unknown rules for serializing cycle {}", unknown)
@@ -54,38 +58,46 @@ fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> SystemSt
         }
     } 
 
-    state
+    emulator
 }
 
 fn debug_state_comparison(
-    initial_state: &SystemState,
-    final_state: &SystemState,
-    tested_state: &mut SystemState,
+    initial_state: &mut Emulator<DefaultVirtualMemory>,
+    final_state: &mut Emulator<DefaultVirtualMemory>,
+    tested_state: &mut Emulator<DefaultVirtualMemory>,
     strict: bool,
     print_me: bool,
 ) -> bool {
-    let result = match strict {
-        true => final_state == tested_state,
-        false => {
-            final_state.pc == tested_state.pc &&
-            final_state.a == tested_state.a &&
-            final_state.s == tested_state.s &&
-            final_state.x == tested_state.x &&
-            final_state.y == tested_state.y &&
-            final_state.p == tested_state.p &&
-            final_state.m == tested_state.m
-        }
+    
+    // let (final_vec, tested_vec) = {
+    //     let mut final_vec = vec![0u8; 0x10000];
+    //     let mut tested_vec = vec![0u8; 0x10000];
+    //     for i in 0..0x10000 {
+    //         final_vec[i] = final_state.read(i as u16);
+    //         tested_vec[i] = tested_state.read(i as u16);
+    //     }
+    //     (final_vec, tested_vec)
+    // };
+    let (final_vec, tested_vec) = (final_state.iter_memory(), tested_state.iter_memory());
+
+    let result = {
+            final_state.state.pc == tested_state.state.pc &&
+            final_state.state.a == tested_state.state.a &&
+            final_state.state.s == tested_state.state.s &&
+            final_state.state.x == tested_state.state.x &&
+            final_state.state.y == tested_state.state.y &&
+            final_state.state.p == tested_state.state.p &&
+            final_vec.clone().zip(tested_vec.clone()).filter(|&(a, b)| a == b).count() != 0
     };
     if !result && print_me {
-        let mut table = Table::new(vec![("initial state", &*initial_state), ("tested state", &*tested_state), ("final state", &*final_state)]);
+        let mut table = Table::new(vec![("initial state", (&*initial_state).state.clone()), ("tested state", (&*tested_state).state.clone()), ("final state", (&*final_state).state.clone())]);
         table.with(Style::modern());
         println!("{}", table);
 
-        let mvec: Vec<Vec<String>> = final_state
-            .m
+        let mvec: Vec<Vec<String>> = final_vec
             .clone()
             .into_iter()
-            .zip(tested_state.m.clone())
+            .zip(tested_vec.clone())
             .enumerate()
             .filter(|(_, (a, b))| a != b)
             .map(
@@ -100,8 +112,8 @@ fn debug_state_comparison(
         println!("{}", table);
 
         let mut cycle_comparison: Vec<Vec<String>> = vec![];
-        let mut it_xs = tested_state.cycles.iter();
-        let mut it_ys = final_state.cycles.iter();
+        let mut it_xs = tested_state.state.cycles.iter();
+        let mut it_ys = final_state.state.cycles.iter();
         loop {
             match (it_xs.next(), it_ys.next()) {
                 (Some(x), Some(y)) => {
@@ -142,10 +154,10 @@ fn run_processor_test(filename: String, instruction: u8, failable: bool) -> bool
     // TODO: Remove take, this is to speed up testing.
     for value in v.as_array().unwrap().iter().take(100) {
         tests_total += 1;
-        let initial_state = json_to_state(value, "initial", false);
+        let mut initial_state = json_to_state(value, "initial", false);
         let mut tested_state = json_to_state(value, "initial", false);
         let mut final_state = json_to_state(value, "final", true);
-        final_state.running = false;
+        final_state.state.running = false;
         // println!("Start state: {}", state.pc());
 
         match tested_state.execute_next_instruction() {
@@ -166,7 +178,7 @@ fn run_processor_test(filename: String, instruction: u8, failable: bool) -> bool
             Err(None) => {}
         }
 
-        if debug_state_comparison(&initial_state, &final_state, &mut tested_state, false, failable) {
+        if debug_state_comparison(&mut initial_state, &mut final_state, &mut tested_state, false, failable) {
             tests_passed += 1;
         } else {
             break;

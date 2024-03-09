@@ -2618,7 +2618,7 @@ impl Instruction {
                 };
 
                 let is_adc_mode = emulator.state.p.contains(SystemFlags::decimal);
-                let result = emulator.state.a as u16 - argument as u16 - carry_flag as u16;
+                let result = (emulator.state.a as u16).wrapping_sub(argument as u16).wrapping_sub(carry_flag as u16);
 
                 let argument_is_positive = argument & 0b10000000;
                 let state_a_is_positive =   emulator.state.a & 0b10000000;
@@ -2637,7 +2637,7 @@ impl Instruction {
                 
                 if is_adc_mode {
                     // TODO: decimal mode
-                    assert!(!is_adc_mode);
+                    return Ok(())
                 }
                 else {
                     emulator.state.p.set(SystemFlags::carry, result > u8::MAX.into());

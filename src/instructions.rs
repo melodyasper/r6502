@@ -1,5 +1,5 @@
 
-use crate::{emulator::{Emulator, VirtualMemory}, state::{EmulatorError, SystemFlags, SystemState}};
+use crate::{emulator::{CPUEmulator, VirtualMemory}, state::{EmulatorError, SystemFlags, SystemState}};
 use anyhow::{anyhow, Result};
 
 use strum_macros::EnumIter;
@@ -1820,7 +1820,7 @@ pub struct MemoryPair {
 }
 
 impl Instruction {
-    pub fn execute <'a, M>(&self, emulator: &mut Emulator<M>)-> Result<()> 
+    pub fn execute <'a, M>(&self, emulator: &mut CPUEmulator<M>)-> Result<()> 
     where M: VirtualMemory {
         let memory_pair = match self.mode {
             Some(AddressingMode::Immediate | AddressingMode::Relative) => {

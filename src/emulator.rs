@@ -3,14 +3,14 @@ use anyhow::Result;
 use derive_builder::Builder;
 
 #[derive(Builder)]
-pub struct Emulator<M>
+pub struct CPUEmulator<M>
 where M: VirtualMemory {
     memory: M,
     pub state: SystemState,
 }
 
 
-impl <M> Emulator <M>
+impl <M> CPUEmulator <M>
 where M: VirtualMemory {
     pub fn execute_next_instruction(&mut self) -> Result<Instruction, Option<Instruction>> {
         if !self.state.running {
@@ -60,7 +60,7 @@ where M: VirtualMemory {
     }
 }
 
-impl<'a, M> Emulator<M> where M: VirtualMemory + 'a, &'a M: IntoIterator<Item = &'a u8> {
+impl<'a, M> CPUEmulator<M> where M: VirtualMemory + 'a, &'a M: IntoIterator<Item = &'a u8> {
     pub fn iter_memory(&'a self) -> <&'a M as IntoIterator>::IntoIter {
         self.memory.into_iter()
     }

@@ -1,4 +1,4 @@
-use r6502::emulator::{DefaultVirtualMemory, Emulator, EmulatorBuilder, VirtualMemory};
+use r6502::emulator::{DefaultVirtualMemory, CPUEmulator, CPUEmulatorBuilder, VirtualMemory};
 use r6502::instructions::{Instruction, OpCode};
 use r6502::state::{SystemAction, SystemCycle, SystemFlags, SystemState};
 
@@ -14,7 +14,7 @@ use colored::Colorize;
 
 
 
-fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> Emulator<DefaultVirtualMemory>  {
+fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> CPUEmulator<DefaultVirtualMemory>  {
     let state = SystemState {
         pc: state_map[key]["pc"].as_u64().unwrap() as u16,
         a:  state_map[key]["a"].as_u64().unwrap() as u8,
@@ -27,7 +27,7 @@ fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> Emulator
     };
 
 
-    let mut emulator = EmulatorBuilder::default().memory(DefaultVirtualMemory::default()).state(state).build().unwrap();
+    let mut emulator = CPUEmulatorBuilder::default().memory(DefaultVirtualMemory::default()).state(state).build().unwrap();
 
     for memory in state_map[key]["ram"].as_array().unwrap().iter() {
         let memory = memory.as_array().unwrap();
@@ -62,9 +62,9 @@ fn json_to_state(state_map: &Value, key: &str, include_cycles: bool) -> Emulator
 }
 
 fn debug_state_comparison(
-    initial_state: &mut Emulator<DefaultVirtualMemory>,
-    final_state: &mut Emulator<DefaultVirtualMemory>,
-    tested_state: &mut Emulator<DefaultVirtualMemory>,
+    initial_state: &mut CPUEmulator<DefaultVirtualMemory>,
+    final_state: &mut CPUEmulator<DefaultVirtualMemory>,
+    tested_state: &mut CPUEmulator<DefaultVirtualMemory>,
     strict: bool,
     print_me: bool,
 ) -> bool {

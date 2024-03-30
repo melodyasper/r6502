@@ -14,8 +14,9 @@ fn main() {
         0x78, 0xd8, 0xa2, 0xff, 0x9a, 0xa9, 0x00, 0x95, 0x00, 0xca, 0xd0, 0xfb, 0x85, 0x00,
         0xa9, 0x30, 0x85, 0x09, 0x4c, 0x00, 0xf0, 0x00, 0xf0, 0x00, 0xf0,
     ]);
+    
 
-    let emulator = CPUEmulatorBuilder::default().state(SystemState::default()).memory(DefaultVirtualMemory::default()).build().unwrap();
+    let emulator = CPUEmulatorBuilder::default().state(SystemState::default()).memory(Arc::new(Mutex::new(DefaultVirtualMemory::default()))).build().unwrap();
     // https://llx.com/Neil/a2/opcodes.html
     let emulator = Arc::new(Mutex::new(emulator));
 

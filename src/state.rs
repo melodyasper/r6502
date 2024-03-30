@@ -1,7 +1,4 @@
 use std::sync::{Arc, Mutex};
-
-use crate::instructions::{Instruction, OpCode};
-use anyhow::{Result, anyhow};
 use tabled::Tabled;
 use bitflags::bitflags;
 

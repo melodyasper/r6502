@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{instructions::{Instruction, OpCode}, state::{SystemAction, SystemCycle, SystemState}};
 use anyhow::Result;
 use derive_builder::Builder;
@@ -5,7 +7,7 @@ use derive_builder::Builder;
 #[derive(Builder)]
 pub struct CPUEmulator<M>
 where M: VirtualMemory {
-    memory: M,
+    memory: Arc<Mutex<M>>,
     pub state: SystemState,
 }
 
@@ -16,7 +18,7 @@ where M: VirtualMemory {
         if !self.state.running {
             return Err(None);
         }
-        let ibyte = self.memory.read(self.state.pc);
+        let ibyte = self.memory.lock().unwrap().read(self.state.pc);
 
         let instruction = Instruction::from(ibyte);
         match instruction.opcode {
@@ -44,27 +46,22 @@ where M: VirtualMemory {
         }
         
     }
-    pub fn read(&mut self, address: u16) -> u8 {
-        
-        let byte = self.memory.read(address);
+}
+impl <M> VirtualMemory for CPUEmulator <M>
+where M: VirtualMemory {
+    fn read(&mut self, address: u16) -> u8 {
+        let byte = self.memory.lock().unwrap().read(address);
         self.state.cycles.push(SystemCycle {address, value: byte, action: SystemAction::READ});
         byte
     }
     
-    pub fn write(&mut self, address: u16, value: u8) {
-        // println!("Writing to {:x} a value of {:x}", address, value);
-        // println!("Insert into memory @ {} value {}", address, value);
-
-        self.memory.write(address, value);
+    fn write(&mut self, address: u16, value: u8) {
+        self.memory.lock().unwrap().write(address, value);
         self.state.cycles.push(SystemCycle {address, value, action: SystemAction::WRITE});
     }
 }
 
-impl<'a, M> CPUEmulator<M> where M: VirtualMemory + 'a, &'a M: IntoIterator<Item = &'a u8> {
-    pub fn iter_memory(&'a self) -> <&'a M as IntoIterator>::IntoIter {
-        self.memory.into_iter()
-    }
-}
+
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DefaultVirtualMemory {
@@ -97,11 +94,11 @@ impl<'a> IntoIterator for &'a DefaultVirtualMemory {
 }
 
 pub trait VirtualMemory {
-    fn read(&self, address: u16) -> u8;
+    fn read(&mut self, address: u16) -> u8;
     fn write(&mut self, address: u16, value: u8);
 }
 impl VirtualMemory for DefaultVirtualMemory {
-    fn read(&self, address: u16) -> u8 {
+    fn read(&mut self, address: u16) -> u8 {
         *self.m.get(address as usize).unwrap_or(&0)
     }
     fn write(&mut self, address: u16, value: u8) {
